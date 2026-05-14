@@ -16,8 +16,8 @@ class StratzPatchViewSet(viewsets.ReadOnlyModelViewSet):
     ordering_fields = ['release_date', 'version']
 
 
+# stratz_meta/views.py (фрагмент HeroMetaViewSet)
 class HeroMetaViewSet(viewsets.ReadOnlyModelViewSet):
-    """Мета-статистика героев с фильтрацией"""
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
     def get_serializer_class(self):
@@ -26,7 +26,6 @@ class HeroMetaViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         qs = HeroMeta.objects.select_related('hero', 'patch').prefetch_related('builds')
         
-        # Фильтрация через query-params
         patch = self.request.query_params.get('patch')
         hero_name = self.request.query_params.get('hero')
         min_winrate = self.request.query_params.get('min_wr')
@@ -42,10 +41,10 @@ class HeroMetaViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=False, methods=['get'])
     def current(self, request):
-        """Быстрый доступ к мете актуального патча"""
+        """Мета актуального патча"""
         current_patch = StratzPatch.objects.filter(is_current=True).first()
         if not current_patch:
-            return Response({'error': 'Актуальный патч не найден. Запустите sync_stratz_meta.'}, status=404)
+            return Response({'error': 'Актуальный патч не найден'}, status=404)
         
         qs = HeroMeta.objects.filter(patch=current_patch).select_related('hero').order_by('-win_rate')
         page = self.paginate_queryset(qs)

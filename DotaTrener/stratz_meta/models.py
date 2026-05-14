@@ -1,8 +1,10 @@
+# stratz_meta/models.py
 from django.db import models
+import datetime
 
 class StratzPatch(models.Model):
     version = models.CharField(max_length=20, unique=True, primary_key=True)
-    release_date = models.DateField()
+    release_date = models.DateField(default=datetime.date.today, null=True, blank=True)
     is_current = models.BooleanField(default=False)
 
     def __str__(self):
@@ -14,16 +16,16 @@ class StratzPatch(models.Model):
 
 
 class HeroMeta(models.Model):
-    """Мета-статистика героя по патчу (winrate, pickrate, роли)"""
-    # Ссылка на Hero из приложения coaching
+    """Мета-статистика героя по патчу (Stratz)"""
     hero = models.ForeignKey('coaching.Hero', on_delete=models.CASCADE, related_name='stratz_meta')
     patch = models.ForeignKey(StratzPatch, on_delete=models.CASCADE)
     
-    pick_rate = models.FloatField(default=0.0, help_text="% пиков")
-    win_rate = models.FloatField(default=0.0, help_text="% побед")
-    ban_rate = models.FloatField(default=0.0, help_text="% банов")
-    games_played = models.PositiveIntegerField(default=0)
-    roles = models.JSONField(default=dict, help_text="{'Carry': 42.5, 'Mid': 31.0}")
+    # 🔥 Stratz использует 'Day' суффикс для статистики
+    pick_rate = models.FloatField(default=0.0, help_text="% пиков (pickDay)")
+    win_rate = models.FloatField(default=0.0, help_text="% побед (winDay)")
+    ban_rate = models.FloatField(default=0.0, help_text="% банов (banDay)")
+    games_played = models.PositiveIntegerField(default=0, help_text="gamesPlayed")
+    roles = models.JSONField(default=dict, blank=True, help_text="{'Carry': 42.5, 'Mid': 31.0}")
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -33,14 +35,14 @@ class HeroMeta(models.Model):
 
 
 class HeroBuild(models.Model):
-    """Топовые сборки (предметы/скиллы) с винрейтами"""
+    """Топовые сборки (предметы/скиллы)"""
     TYPE_CHOICES = [('item', 'Предметы'), ('skill', 'Способности')]
     
     hero_meta = models.ForeignKey(HeroMeta, on_delete=models.CASCADE, related_name='builds')
     build_type = models.CharField(max_length=10, choices=TYPE_CHOICES)
     sequence = models.JSONField(help_text="Список ID предметов или аббревиатур скиллов")
-    pick_rate = models.FloatField(default=0.0)
-    win_rate = models.FloatField(default=0.0)
+    pick_rate = models.FloatField(default=0.0, help_text="pickDay")
+    win_rate = models.FloatField(default=0.0, help_text="winDay")
     games = models.PositiveIntegerField(default=0)
     role = models.CharField(max_length=20, blank=True, null=True)
 

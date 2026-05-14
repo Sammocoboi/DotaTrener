@@ -39,8 +39,8 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-ROOT_URLCONF = 'your_project_name.urls'
-WSGI_APPLICATION = 'your_project_name.wsgi.application'
+ROOT_URLCONF = 'DotaTrener.urls'
+WSGI_APPLICATION = 'DotaTrener.wsgi.application'
 
 TEMPLATES = [
     {
