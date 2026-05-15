@@ -1,3 +1,4 @@
+# DotaTrener/settings.py
 import os
 from pathlib import Path
 from dotenv import load_dotenv
@@ -22,7 +23,7 @@ INSTALLED_APPS = [
     
     # Сторонние приложения
     'rest_framework',
-    'django_filters',  # рекомендуется для фильтрации в API
+    'django_filters',
     
     # Ваши приложения
     'coaching',
@@ -58,11 +59,15 @@ TEMPLATES = [
     },
 ]
 
-# База данных (SQLite для разработки, замените на PostgreSQL для продакшена)
+#  PostgreSQL конфигурация (читает из .env)
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.getenv('DB_NAME', 'dotatrener_db'),
+        'USER': os.getenv('DB_USER', 'DotaTrener_user'),
+        'PASSWORD': os.getenv('DB_PASSWORD', '1234'),
+        'HOST': os.getenv('DB_HOST', '127.0.0.1'),
+        'PORT': os.getenv('DB_PORT', '5432'),
     }
 }
 
@@ -104,7 +109,6 @@ REST_FRAMEWORK = {
         'anon': '100/hour',
         'user': '1000/hour',
     },
-    # Если позже добавите django-filter:
     'DEFAULT_FILTER_BACKENDS': [
         'django_filters.rest_framework.DjangoFilterBackend',
     ],

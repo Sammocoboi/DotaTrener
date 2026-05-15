@@ -2,10 +2,14 @@ from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from .models import StratzPatch, HeroMeta, HeroBuild
+from ..models import StratzPatch, HeroMeta, HeroBuild
 from .serializers import (
     StratzPatchSerializer, HeroMetaListSerializer, HeroMetaDetailSerializer, HeroBuildSerializer
 )
+"""
+валидация входящего данных вызов
+метода сервиса сериализация результатов
+"""
 
 
 class StratzPatchViewSet(viewsets.ReadOnlyModelViewSet):

@@ -1,0 +1,5 @@
+2026-05-15 11:46:03,154 - ERROR - ❌ Ошибка инициализации Django: No module named 'config'. Проверьте DJANGO_SETTINGS_MODULE в .env
+2026-05-15 11:46:41,939 - ERROR - ❌ Ошибка инициализации Django: No module named 'DotaTrener'. Проверьте DJANGO_SETTINGS_MODULE в .env
+2026-05-15 11:47:13,993 - ERROR - ❌ Ошибка инициализации Django: No module named 'DotaTrener'. Проверьте DJANGO_SETTINGS_MODULE в .env
+2026-05-15 11:50:44,839 - ERROR - ❌ Ошибка инициализации Django: No module named 'DotaTrener'. Убедитесь, что DJANGO_SETTINGS_MODULE=DotaTrener.settings в .env
+2026-05-15 11:51:33,103 - ERROR - ❌ Ошибка инициализации Django: No module named 'DotaTrener'. Убедитесь, что DJANGO_SETTINGS_MODULE=DotaTrener.settings в .env

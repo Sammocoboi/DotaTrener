@@ -1,0 +1,108 @@
+2026-05-15 11:55:08,296 - ERROR - ❌ Ошибка инициализации Django: No module named 'DotaTrener.settings.py'; 'DotaTrener.settings' is not a package. Убедитесь, что DJANGO_SETTINGS_MODULE=DotaTrener.settings в .env
+2026-05-15 11:55:18,191 - ERROR - ❌ Ошибка инициализации Django: No module named 'DotaTrener.settings.py'; 'DotaTrener.settings' is not a package. Убедитесь, что DJANGO_SETTINGS_MODULE=DotaTrener.settings в .env
+2026-05-15 11:55:24,251 - INFO - ✅ Токен загружен: eyJhbGci...2Uqo
+2026-05-15 11:55:24,252 - INFO - 🚀 Запуск Stratz Meta Parser
+2026-05-15 11:55:24,252 - INFO - 📦 Получаем текущий патч...
+2026-05-15 11:55:25,230 - ERROR - ❌ HTTP 400: {"errors":[{"message":"Cannot query field \u0027patches\u0027 on type \u0027DotaQuery\u0027. Did you mean \u0027matches\u0027 or \u0027match\u0027?","locations":[{"line":2,"column":7}],"extensions":{"code":"FIELDS_ON_CORRECT_TYPE","codes":["FIELDS_ON
+2026-05-15 11:55:25,252 - ERROR - ❌ Не удалось получить патч
+2026-05-15 11:59:28,754 - INFO - ✅ Токен загружен: eyJhbGci...2Uqo
+2026-05-15 11:59:28,755 - INFO - 🚀 Запуск Stratz Meta Parser
+2026-05-15 11:59:28,755 - INFO - 📦 Получаем текущий патч...
+2026-05-15 11:59:29,392 - ERROR - ❌ HTTP 400: {"errors":[{"message":"Cannot query field \u0027patches\u0027 on type \u0027ConstantQuery\u0027. Did you mean \u0027patchNotes\u0027?","locations":[{"line":3,"column":9}],"extensions":{"code":"FIELDS_ON_CORRECT_TYPE","codes":["FIELDS_ON_CORRECT_TYPE"
+2026-05-15 12:01:10,312 - INFO - ✅ Токен загружен: eyJhbGci...2Uqo
+2026-05-15 12:01:10,314 - INFO - 🚀 Запуск Stratz Meta Parser
+2026-05-15 12:01:10,315 - INFO - 📦 Получаем текущий патч...
+2026-05-15 12:01:11,403 - ERROR - ❌ HTTP 400: {"errors":[{"message":"Cannot query field \u0027patches\u0027 on type \u0027ConstantQuery\u0027. Did you mean \u0027patchNotes\u0027?","locations":[{"line":1,"column":15}],"extensions":{"code":"FIELDS_ON_CORRECT_TYPE","codes":["FIELDS_ON_CORRECT_TYPE
+2026-05-15 12:01:11,404 - WARNING - ⚠️ Не удалось получить патч из API (schema changed). Используем fallback.
+2026-05-15 12:03:45,447 - INFO - 🚀 Запуск Stratz Meta Parser
+2026-05-15 12:03:45,447 - INFO - 📦 Получаем текущий патч...
+2026-05-15 12:03:46,154 - ERROR - ❌ HTTP 400: {"errors":[{"message":"Cannot query field \u0027patches\u0027 on type \u0027ConstantQuery\u0027. Did you mean \u0027patchNotes\u0027?","locations":[{"line":1,"column":15}],"extensions":{"code":"FIELDS_ON_CORRECT_TYPE","codes":["FIELDS_ON_CORRECT_TYPE
+2026-05-15 12:03:46,154 - WARNING - ⚠️ Не удалось получить патч из API. Используем fallback (7.38).
+2026-05-15 12:03:46,227 - INFO - ✅ Патч активирован: 7.38
+2026-05-15 12:03:46,227 - INFO - 🦸 Загружаем список героев...
+2026-05-15 12:03:46,456 - ERROR - ❌ HTTP 400: {"errors":[{"message":"Cannot query field \u0027localized_name\u0027 on type \u0027HeroType\u0027.","locations":[{"line":1,"column":44}],"extensions":{"code":"FIELDS_ON_CORRECT_TYPE","codes":["FIELDS_ON_CORRECT_TYPE"],"number":"5.3.1"}}]}
+2026-05-15 12:03:46,457 - ERROR - ❌ Не удалось получить список героев
+2026-05-15 12:06:01,664 - INFO - 🚀 Запуск Stratz Parser
+2026-05-15 12:06:01,665 - INFO - 📦 Используем патч: 7.38 (API schema changed)
+2026-05-15 12:06:01,751 - INFO - ✅ Патч: 7.38
+2026-05-15 12:06:02,461 - INFO - 🧪 Тест: первые 10 героев
+2026-05-15 12:06:02,461 - INFO - [1/10] 🦸 Anti-Mage (ID:1)
+2026-05-15 12:06:02,462 - WARNING - ⚠️ DB lookup: Cannot resolve keyword 'stratz_id' into field. Choices are: id, localized_name, match, name, primary_attr, roles, steam_id, stratz_meta
+2026-05-15 12:06:02,462 - WARNING -   ⚠️ Герой не найден в БД
+2026-05-15 12:06:02,962 - INFO - [2/10] 🦸 Axe (ID:2)
+2026-05-15 12:06:02,963 - WARNING - ⚠️ DB lookup: Cannot resolve keyword 'stratz_id' into field. Choices are: id, localized_name, match, name, primary_attr, roles, steam_id, stratz_meta
+2026-05-15 12:06:02,963 - WARNING -   ⚠️ Герой не найден в БД
+2026-05-15 12:06:03,464 - INFO - [3/10] 🦸 Bane (ID:3)
+2026-05-15 12:06:03,464 - WARNING - ⚠️ DB lookup: Cannot resolve keyword 'stratz_id' into field. Choices are: id, localized_name, match, name, primary_attr, roles, steam_id, stratz_meta
+2026-05-15 12:06:03,465 - WARNING -   ⚠️ Герой не найден в БД
+2026-05-15 12:06:03,966 - INFO - [4/10] 🦸 Bloodseeker (ID:4)
+2026-05-15 12:06:03,966 - WARNING - ⚠️ DB lookup: Cannot resolve keyword 'stratz_id' into field. Choices are: id, localized_name, match, name, primary_attr, roles, steam_id, stratz_meta
+2026-05-15 12:06:03,967 - WARNING -   ⚠️ Герой не найден в БД
+2026-05-15 12:06:04,468 - INFO - [5/10] 🦸 Crystal Maiden (ID:5)
+2026-05-15 12:06:04,468 - WARNING - ⚠️ DB lookup: Cannot resolve keyword 'stratz_id' into field. Choices are: id, localized_name, match, name, primary_attr, roles, steam_id, stratz_meta
+2026-05-15 12:06:04,468 - WARNING -   ⚠️ Герой не найден в БД
+2026-05-15 12:06:04,969 - INFO - [6/10] 🦸 Drow Ranger (ID:6)
+2026-05-15 12:06:04,970 - WARNING - ⚠️ DB lookup: Cannot resolve keyword 'stratz_id' into field. Choices are: id, localized_name, match, name, primary_attr, roles, steam_id, stratz_meta
+2026-05-15 12:06:04,970 - WARNING -   ⚠️ Герой не найден в БД
+2026-05-15 12:06:05,471 - INFO - [7/10] 🦸 Earthshaker (ID:7)
+2026-05-15 12:06:05,471 - WARNING - ⚠️ DB lookup: Cannot resolve keyword 'stratz_id' into field. Choices are: id, localized_name, match, name, primary_attr, roles, steam_id, stratz_meta
+2026-05-15 12:06:05,471 - WARNING -   ⚠️ Герой не найден в БД
+2026-05-15 12:06:05,972 - INFO - [8/10] 🦸 Juggernaut (ID:8)
+2026-05-15 12:06:05,972 - WARNING - ⚠️ DB lookup: Cannot resolve keyword 'stratz_id' into field. Choices are: id, localized_name, match, name, primary_attr, roles, steam_id, stratz_meta
+2026-05-15 12:06:05,973 - WARNING -   ⚠️ Герой не найден в БД
+2026-05-15 12:06:06,473 - INFO - [9/10] 🦸 Mirana (ID:9)
+2026-05-15 12:06:06,474 - WARNING - ⚠️ DB lookup: Cannot resolve keyword 'stratz_id' into field. Choices are: id, localized_name, match, name, primary_attr, roles, steam_id, stratz_meta
+2026-05-15 12:06:06,474 - WARNING -   ⚠️ Герой не найден в БД
+2026-05-15 12:06:06,974 - INFO - [10/10] 🦸 Morphling (ID:10)
+2026-05-15 12:06:06,975 - WARNING - ⚠️ DB lookup: Cannot resolve keyword 'stratz_id' into field. Choices are: id, localized_name, match, name, primary_attr, roles, steam_id, stratz_meta
+2026-05-15 12:06:06,975 - WARNING -   ⚠️ Герой не найден в БД
+2026-05-15 12:06:07,476 - INFO - 
+🎉 Готово! Успешно: 0/10 | Сборки: 0 | Время: 5.0с
+2026-05-15 12:47:43,114 - INFO - 🚀 Запуск Stratz Parser
+2026-05-15 12:47:43,119 - INFO - 📦 Используем патч: 7.38 (fallback)
+2026-05-15 12:47:43,185 - INFO - ✅ Патч: 7.38
+2026-05-15 12:47:43,187 - INFO - 📂 Загружено героев из БД в кэш: 246
+2026-05-15 12:47:43,969 - INFO -  Тест: первые 10 героев
+2026-05-15 12:47:43,969 - INFO - [1/10] 🦸 Anti-Mage (ID:1)
+2026-05-15 12:47:43,970 - WARNING -   ⚠️ Герой не найден в БД (пробовал: name='npc_dota_hero_antimage', display='Anti-Mage')
+2026-05-15 12:47:44,370 - INFO - [2/10] 🦸 Axe (ID:2)
+2026-05-15 12:47:44,383 - WARNING -   ⚠️ Герой не найден в БД (пробовал: name='npc_dota_hero_axe', display='Axe')
+2026-05-15 12:47:44,784 - INFO - [3/10] 🦸 Bane (ID:3)
+2026-05-15 12:47:44,785 - WARNING -   ⚠️ Герой не найден в БД (пробовал: name='npc_dota_hero_bane', display='Bane')
+2026-05-15 12:47:45,185 - INFO - [4/10] 🦸 Bloodseeker (ID:4)
+2026-05-15 12:47:45,186 - WARNING -   ⚠️ Герой не найден в БД (пробовал: name='npc_dota_hero_bloodseeker', display='Bloodseeker')
+2026-05-15 12:47:45,586 - INFO - [5/10] 🦸 Crystal Maiden (ID:5)
+2026-05-15 12:47:45,586 - WARNING -   ⚠️ Герой не найден в БД (пробовал: name='npc_dota_hero_crystal_maiden', display='Crystal Maiden')
+2026-05-15 12:47:45,987 - INFO - [6/10] 🦸 Drow Ranger (ID:6)
+2026-05-15 12:47:45,988 - WARNING -   ⚠️ Герой не найден в БД (пробовал: name='npc_dota_hero_drow_ranger', display='Drow Ranger')
+2026-05-15 12:47:46,389 - INFO - [7/10] 🦸 Earthshaker (ID:7)
+2026-05-15 12:47:46,389 - WARNING -   ⚠️ Герой не найден в БД (пробовал: name='npc_dota_hero_earthshaker', display='Earthshaker')
+2026-05-15 12:47:46,790 - INFO - [8/10] 🦸 Juggernaut (ID:8)
+2026-05-15 12:47:46,791 - WARNING -   ⚠️ Герой не найден в БД (пробовал: name='npc_dota_hero_juggernaut', display='Juggernaut')
+2026-05-15 12:47:47,196 - INFO - [9/10] 🦸 Mirana (ID:9)
+2026-05-15 12:47:47,219 - WARNING -   ⚠️ Герой не найден в БД (пробовал: name='npc_dota_hero_mirana', display='Mirana')
+2026-05-15 12:47:47,643 - INFO - [10/10] 🦸 Morphling (ID:10)
+2026-05-15 12:47:47,725 - WARNING -   ⚠️ Герой не найден в БД (пробовал: name='npc_dota_hero_morphling', display='Morphling')
+2026-05-15 12:47:48,195 - INFO - 
+🎉 Готово! Успешно: 0/10 | Сборки: 0 | Время: 4.2с
+2026-05-15 12:51:44,148 - INFO - 🚀 Запуск Stratz Parser
+2026-05-15 12:51:44,149 - INFO - 📦 Используем патч: 7.38 (fallback)
+2026-05-15 12:51:44,235 - INFO - ✅ Патч: 7.38
+2026-05-15 12:51:44,238 - INFO - 📂 Кэш героев: 246 ключей
+2026-05-15 12:51:45,103 - INFO - 🧪 Тест: первые 5 героев
+2026-05-15 12:51:45,105 - INFO - [1/5] 🦸 Anti-Mage (ID:1)
+2026-05-15 12:51:45,108 - WARNING -   ⚠️ Герой не найден в БД (API: name='npc_dota_hero_antimage', display='Anti-Mage')
+2026-05-15 12:51:45,509 - INFO - [2/5] 🦸 Axe (ID:2)
+2026-05-15 12:51:45,512 - WARNING -   ⚠️ Герой не найден в БД (API: name='npc_dota_hero_axe', display='Axe')
+2026-05-15 12:51:45,913 - INFO - [3/5] 🦸 Bane (ID:3)
+2026-05-15 12:51:45,915 - WARNING -   ⚠️ Герой не найден в БД (API: name='npc_dota_hero_bane', display='Bane')
+2026-05-15 12:51:46,316 - INFO - [4/5] 🦸 Bloodseeker (ID:4)
+2026-05-15 12:51:46,319 - WARNING -   ⚠️ Герой не найден в БД (API: name='npc_dota_hero_bloodseeker', display='Bloodseeker')
+2026-05-15 12:51:46,720 - INFO - [5/5] 🦸 Crystal Maiden (ID:5)
+2026-05-15 12:51:46,725 - WARNING -   ⚠️ Герой не найден в БД (API: name='npc_dota_hero_crystal_maiden', display='Crystal Maiden')
+2026-05-15 12:51:47,128 - INFO - 
+🎉 Готово! Успешно: 0/5 | Сборки: 0 | Время: 2.0с
+2026-05-15 12:51:47,128 - WARNING - 💡 Совет: проверьте, как записаны имена героев в БД:
+2026-05-15 12:51:47,128 - WARNING -    python manage.py shell
+2026-05-15 12:51:47,129 - WARNING -    >>> from coaching.models import Hero
+2026-05-15 12:51:47,129 - WARNING -    >>> print(Hero.objects.values('name', 'localized_name')[:2])

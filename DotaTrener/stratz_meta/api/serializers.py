@@ -1,6 +1,6 @@
 # stratz_meta/serializers.py
 from rest_framework import serializers
-from .models import StratzPatch, HeroMeta, HeroBuild
+from ..models import StratzPatch, HeroMeta, HeroBuild
 
 
 class HeroBuildSerializer(serializers.ModelSerializer):
