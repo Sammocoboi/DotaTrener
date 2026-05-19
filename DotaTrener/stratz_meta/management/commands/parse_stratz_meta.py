@@ -1,4 +1,4 @@
-# stratz_meta/management/commands/sync_hero_meta.py
+# stratz_meta/management/commands/parse_stratz_meta.py
 import requests
 from datetime import date
 from django.core.management.base import BaseCommand
@@ -8,8 +8,12 @@ from stratz_meta.models import StratzPatch, HeroMeta
 
 OPEN_DOTA_URL = "https://api.opendota.com/api/heroStats"
 
+
 class Command(BaseCommand):
-    help = "Синхронизация мета-статистики героев (Win/Pick/Ban Rate) через OpenDota"
+    help = (
+        "Синхронизация мета-статистики героев через OpenDota (fallback). "
+        "Для Stratz используйте: python manage.py sync_stratz_meta"
+    )
 
     def add_arguments(self, parser):
         parser.add_argument('--patch', type=str, default='current', help="Версия патча для записи в БД")

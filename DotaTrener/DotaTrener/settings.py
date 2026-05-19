@@ -114,5 +114,10 @@ REST_FRAMEWORK = {
     ],
 }
 
-# 4️⃣ Внешние API
+# 4️⃣ Внешние API (Stratz)
 STRATZ_API_KEY = os.getenv('STRATZ_API_KEY', '')
+STRATZ_API_URL = os.getenv('STRATZ_API_URL', 'https://api.stratz.com/graphql')
+STRATZ_REST_URL = os.getenv('STRATZ_REST_URL', 'https://api.stratz.com/api/v1')
+STRATZ_PATCH_VERSION = os.getenv('STRATZ_PATCH_VERSION', '7.38')
+STRATZ_REQUEST_DELAY = float(os.getenv('STRATZ_REQUEST_DELAY', '0.4'))
+STRATZ_BUILDS_TAKE = int(os.getenv('STRATZ_BUILDS_TAKE', '100'))
