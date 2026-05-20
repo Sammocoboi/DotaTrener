@@ -6,8 +6,16 @@ from stratz_meta.services import StratzSyncService
 class Command(BaseCommand):
     help = (
         "Синхронизация мета и билдов для ВСЕХ героев Dota 2 из Stratz "
-        "(по умолчанию ~126 героев, без --limit). Билды — все доступные."
+        "(по умолчанию ~126 героев, без --limit)."
     )
+
+    def create_parser(self, prog_name, subcommand, **kwargs):
+        parser = super().create_parser(prog_name, subcommand, **kwargs)
+        parser.epilog = (
+            "Ранг: DIVINE_IMMORTAL (Divine/Immortal). Мета и билды — bracketBasicIds.\n"
+            "ban_rate без ранга; GPM/XPM — см. stratz_meta/README.md"
+        )
+        return parser
 
     def add_arguments(self, parser):
         parser.add_argument("--patch", type=str, help="Версия патча Stratz")
@@ -30,7 +38,10 @@ class Command(BaseCommand):
             "--rank",
             type=str,
             default="DIVINE_IMMORTAL",
-            help="Брекет: DIVINE_IMMORTAL, ALL, LEGEND_ANCIENT и др. (ALL — шире выборка)",
+            help=(
+                "Брекет Stratz для меты и билдов (default DIVINE_IMMORTAL = Divine/Immortal). "
+                "ALL — все ранги"
+            ),
         )
         parser.add_argument(
             "--skip-builds",

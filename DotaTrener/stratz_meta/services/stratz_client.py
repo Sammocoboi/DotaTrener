@@ -107,6 +107,12 @@ def _bracket_fragments(rank: Optional[str]) -> Tuple[str, str]:
     return f", bracketBasicIds: [{basic}]", f", bracketIds: [{bracket_id}]"
 
 
+def _bracket_basic_frag(rank: Optional[str]) -> str:
+    """bracketBasicIds for stats, item builds, skill builds."""
+    basic_frag, _ = _bracket_fragments(rank)
+    return basic_frag
+
+
 def _win_rate(win_count: int, match_count: int) -> float:
     if not match_count:
         return 0.0
@@ -127,20 +133,66 @@ def _roles_from_position_rows(pos_rows: List[Dict[str, Any]]) -> Dict[str, float
     return roles
 
 
+STATS_PERFORMANCE_FIELDS = (
+    "kills deaths assists cs dn networth xp heroDamage towerDamage "
+    "kDAAverage killContributionAverage goldPerMinute"
+)
+
+
+def _float_or_none(value: Any) -> Optional[float]:
+    if value is None:
+        return None
+    try:
+        return round(float(value), 2)
+    except (TypeError, ValueError):
+        return None
+
+
+def _performance_from_stat_row(row: Dict[str, Any]) -> Dict[str, Any]:
+    """Averages per game from heroStats.stats (HeroPositionTimeDetailType)."""
+    avg_minutes = float(getattr(settings, "STRATZ_AVG_MATCH_MINUTES", 45) or 45)
+    networth = _float_or_none(row.get("networth"))
+    xp_total = _float_or_none(row.get("xp"))
+    gpm = _float_or_none(row.get("goldPerMinute"))
+    if gpm is None and networth is not None and avg_minutes > 0:
+        gpm = round(networth / avg_minutes, 1)
+    xpm = None
+    if xp_total is not None and avg_minutes > 0:
+        xpm = round(xp_total / avg_minutes, 1)
+    return {
+        "avg_kills": _float_or_none(row.get("kills")),
+        "avg_deaths": _float_or_none(row.get("deaths")),
+        "avg_assists": _float_or_none(row.get("assists")),
+        "avg_gpm": gpm,
+        "avg_xpm": xpm,
+        "avg_last_hits": _float_or_none(row.get("cs")),
+        "avg_denies": _float_or_none(row.get("dn")),
+        "avg_networth": networth,
+        "avg_hero_damage": _float_or_none(row.get("heroDamage")),
+        "avg_tower_damage": _float_or_none(row.get("towerDamage")),
+        "avg_kda": _float_or_none(row.get("kDAAverage")),
+        "avg_kill_participation": _float_or_none(row.get("killContributionAverage")),
+    }
+
+
 def _meta_from_totals(
     win_count: int,
     match_count: int,
     roles: Optional[Dict[str, float]] = None,
     pick_rate: float = 0.0,
     ban_rate: float = 0.0,
+    performance: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
-    return {
+    meta = {
         "pick_rate": pick_rate,
         "win_rate": _win_rate(win_count, match_count),
         "ban_rate": ban_rate,
         "games_played": match_count,
         "roles": roles or {},
     }
+    if performance:
+        meta.update(performance)
+    return meta
 
 
 def _format_internal_name(name: str) -> str:
@@ -357,7 +409,7 @@ class StratzClient:
               heroId position winCount matchCount
             }}
             statsTotals: stats(heroIds: [{ids_csv}]{basic_frag}) {{
-              heroId winCount matchCount
+              heroId winCount matchCount {STATS_PERFORMANCE_FIELDS}
             }}
           }}
         }}"""
@@ -399,6 +451,7 @@ class StratzClient:
             pos_rows = positions.get(hid, [])
             roles = _roles_from_position_rows(pos_rows)
             totals = totals_by_hero.get(hid)
+            performance = _performance_from_stat_row(totals) if totals else {}
             pick_rate = 0.0
             if totals and batch_match_total:
                 pick_rate = round(
@@ -410,7 +463,11 @@ class StratzClient:
                 win_count = int(source.get("winCount") or 0)
                 match_count = int(source.get("matchCount") or 0)
                 result[hid] = _meta_from_totals(
-                    win_count, match_count, roles=roles, pick_rate=pick_rate
+                    win_count,
+                    match_count,
+                    roles=roles,
+                    pick_rate=pick_rate,
+                    performance=performance,
                 )
                 continue
 
@@ -420,6 +477,7 @@ class StratzClient:
                     int(totals.get("matchCount") or 0),
                     roles=roles,
                     pick_rate=pick_rate,
+                    performance=performance,
                 )
                 continue
 
@@ -428,7 +486,11 @@ class StratzClient:
                 match_total = sum(int(p.get("matchCount") or 0) for p in pos_rows)
                 if match_total:
                     result[hid] = _meta_from_totals(
-                        win_total, match_total, roles=roles, pick_rate=pick_rate
+                        win_total,
+                        match_total,
+                        roles=roles,
+                        pick_rate=pick_rate,
+                        performance=performance,
                     )
                     continue
 
@@ -436,6 +498,7 @@ class StratzClient:
             if fallback:
                 fallback["roles"] = roles or fallback.get("roles", {})
                 fallback["pick_rate"] = pick_rate or fallback.get("pick_rate", 0.0)
+                fallback.update(performance)
                 result[hid] = fallback
 
         for hid, meta in result.items():
@@ -508,14 +571,17 @@ class StratzClient:
         take: int = 100,
     ) -> List[Dict[str, Any]]:
         if build_type == "item":
-            return self._fetch_item_builds(hero_id, take)
-        return self._fetch_skill_builds(hero_id, take)
+            return self._fetch_item_builds(hero_id, take, rank=rank)
+        return self._fetch_skill_builds(hero_id, take, rank=rank)
 
-    def _fetch_item_builds(self, hero_id: int, take: int) -> List[Dict[str, Any]]:
+    def _fetch_item_builds(
+        self, hero_id: int, take: int, rank: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        bracket_frag = _bracket_basic_frag(rank)
         query = f"""{{
           heroStats {{
-            itemFullPurchase(heroId: {hero_id}) {{ itemId time winCount matchCount }}
-            itemBootPurchase(heroId: {hero_id}) {{ itemId winCount matchCount }}
+            itemFullPurchase(heroId: {hero_id}{bracket_frag}) {{ itemId time winCount matchCount }}
+            itemBootPurchase(heroId: {hero_id}{bracket_frag}) {{ itemId winCount matchCount }}
           }}
         }}"""
         data = self.graphql(query)
@@ -593,11 +659,14 @@ class StratzClient:
                     break
         return builds[:take]
 
-    def _fetch_skill_builds(self, hero_id: int, take: int) -> List[Dict[str, Any]]:
+    def _fetch_skill_builds(
+        self, hero_id: int, take: int, rank: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        bracket_frag = _bracket_basic_frag(rank)
         query = f"""{{
           heroStats {{
-            abilityMaxLevel(heroId: {hero_id}) {{ abilityId level winCount matchCount }}
-            abilityMinLevel(heroId: {hero_id}) {{ abilityId level winCount matchCount }}
+            abilityMaxLevel(heroId: {hero_id}{bracket_frag}) {{ abilityId level winCount matchCount }}
+            abilityMinLevel(heroId: {hero_id}{bracket_frag}) {{ abilityId level winCount matchCount }}
           }}
         }}"""
         data = self.graphql(query)

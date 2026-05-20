@@ -2,13 +2,14 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
-
+from stratz_meta.models import HeroMeta
 from .models import Match, Review, Mistake
 from .serializers import (
-    MatchSerializer, ReviewListSerializer, ReviewDetailSerializer, MistakeSerializer
+    MatchSerializer, ReviewListSerializer, ReviewDetailSerializer, MistakeSerializer, 
 )
-
-
+from stratz_meta.serializers import HeroMetaSerializer 
+import json
+from pathlib import Path
 class MatchViewSet(viewsets.ModelViewSet):
     serializer_class = MatchSerializer
     # Пока разрешено всем авторизованным пользователям. 
@@ -77,3 +78,20 @@ class MistakeViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Поле review обязательно'}, status=status.HTTP_400_BAD_REQUEST)
         review = get_object_or_404(Review, id=review_id)
         serializer.save(review=review)
+
+class CheckGpm(viewsets.ModelViewSet):
+    serializer_class = HeroMetaSerializer
+    def get_queryset(self):
+        path = Path(__file__).resolve().parent.parent / 'data' / 'matches'/'match_8813545013_player_1138223098.json'
+
+        with open(path, encoding="utf-8") as f:
+            match = json.load(f)   
+        player = match["players"][0]
+        id = player["heroId"]
+        
+        heo = HeroMeta.objects.all().filter(id=id)
+        print(f"айди {id} герой {heo}")
+        if player["goldPerMinute"]>heo.avg_gpm:
+            return "ты титан"
+        else:
+            return "ты лох"

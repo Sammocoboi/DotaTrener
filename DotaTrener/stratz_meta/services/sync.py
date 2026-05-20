@@ -132,16 +132,29 @@ class StratzSyncService:
         patch_obj: StratzPatch,
         builds_data: List[Dict[str, Any]],
     ) -> int:
+        defaults = {
+            "pick_rate": meta_data["pick_rate"],
+            "win_rate": meta_data["win_rate"],
+            "ban_rate": meta_data["ban_rate"],
+            "games_played": meta_data["games_played"],
+            "roles": meta_data.get("roles", {}),
+            "avg_kills": meta_data.get("avg_kills"),
+            "avg_deaths": meta_data.get("avg_deaths"),
+            "avg_assists": meta_data.get("avg_assists"),
+            "avg_gpm": meta_data.get("avg_gpm"),
+            "avg_xpm": meta_data.get("avg_xpm"),
+            "avg_last_hits": meta_data.get("avg_last_hits"),
+            "avg_denies": meta_data.get("avg_denies"),
+            "avg_networth": meta_data.get("avg_networth"),
+            "avg_hero_damage": meta_data.get("avg_hero_damage"),
+            "avg_tower_damage": meta_data.get("avg_tower_damage"),
+            "avg_kda": meta_data.get("avg_kda"),
+            "avg_kill_participation": meta_data.get("avg_kill_participation"),
+        }
         meta, _ = HeroMeta.objects.update_or_create(
             hero=hero_obj,
             patch=patch_obj,
-            defaults={
-                "pick_rate": meta_data["pick_rate"],
-                "win_rate": meta_data["win_rate"],
-                "ban_rate": meta_data["ban_rate"],
-                "games_played": meta_data["games_played"],
-                "roles": meta_data.get("roles", {}),
-            },
+            defaults=defaults,
         )
         HeroBuild.objects.filter(hero_meta=meta).delete()
         if builds_data:
