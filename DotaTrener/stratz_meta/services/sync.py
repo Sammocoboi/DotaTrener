@@ -8,7 +8,8 @@ from django.conf import settings
 from django.db import transaction
 
 from coaching.models import Hero
-from stratz_meta.models import HeroBuild, HeroMeta, StratzPatch
+from stratz_meta.match_items import endgame_build_from_builds_data, sequence_to_slot_defaults
+from stratz_meta.models import HeroBuild, HeroEndgameLoadout, HeroMeta, StratzPatch
 
 from .stratz_client import StratzClient
 
@@ -172,6 +173,20 @@ class StratzSyncService:
                     for row in builds_data
                 ]
             )
+
+        sequence, eg_games, eg_wr = endgame_build_from_builds_data(builds_data)
+        if sequence:
+            HeroEndgameLoadout.objects.update_or_create(
+                hero_meta=meta,
+                defaults={
+                    **sequence_to_slot_defaults(sequence),
+                    "games": eg_games,
+                    "win_rate": eg_wr,
+                },
+            )
+        else:
+            HeroEndgameLoadout.objects.filter(hero_meta=meta).delete()
+
         return len(builds_data)
 
     def sync_meta(

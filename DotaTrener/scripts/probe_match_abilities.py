@@ -1,12 +1,11 @@
 """
 Fetch full Stratz match player stats via GraphQL introspection.
-
+1
 Usage:
   python scripts/probe_match_abilities.py MATCH_ID
-  python scripts/probe_match_abilities.py MATCH_ID --save
-  python scripts/probe_match_abilities.py MATCH_ID --account-id 1138223098
-  python scripts/probe_match_abilities.py MATCH_ID --account-id 76561199098488826
-  python scripts/probe_match_abilities.py MATCH_ID --out path/to/file.json
+  python scripts/probe_match_abilities.py MATCH_ID --out match.json
+  python scripts/probe_match_abilities.py MATCH_ID --account-id STEAM_ID
+  python scripts/probe_match_abilities.py MATCH_ID --verbose
 """
 from __future__ import annotations
 
@@ -61,8 +60,6 @@ TYPE_FIELDS_QUERY = """
 
 PLAYER_TYPE = "MatchPlayerType"
 SELECTION_DEPTH = 2
-STEAM_ID64_BASE = 76561197960265728
-MATCH_EXPORT_DIR = os.path.join(BASE_DIR, "data", "matches")
 # Skip nested match on player (full MatchType duplicates root query).
 SKIP_FIELDS: Dict[str, Set[str]] = {
     PLAYER_TYPE: {"match"},
@@ -109,6 +106,7 @@ def build_field_selection(
     type_info: Dict[str, Any],
     depth: int,
     visited: Set[str],
+    parent_type: str,
 ) -> str:
     kind, named = unwrap_type(type_info)
 
@@ -143,7 +141,9 @@ def build_selection(type_name: str, depth: int, visited: Optional[Set[str]] = No
         if not name or name.startswith("__") or name in skip:
             continue
         type_info = field.get("type") or {}
-        parts.append(build_field_selection(name, type_info, depth, visited))
+        parts.append(
+            build_field_selection(name, type_info, depth, visited, type_name)
+        )
 
     return "\n      ".join(parts)
 
@@ -190,54 +190,25 @@ def fetch_match(
     return match
 
 
-def resolve_steam_account_id(raw: int) -> int:
-    """
-    Stratz uses 32-bit steamAccountId (OpenDota account_id).
-    Steam profile URLs use SteamID64 — convert automatically.
-    """
-    if raw >= STEAM_ID64_BASE:
-        return raw - STEAM_ID64_BASE
-    return raw
-
-
-def filter_player(match: Dict[str, Any], account_id: int, raw_id: int) -> Dict[str, Any]:
+def filter_player(match: Dict[str, Any], account_id: int) -> Dict[str, Any]:
     players = match.get("players") or []
     filtered = [
         p for p in players if int(p.get("steamAccountId") or 0) == account_id
     ]
     if not filtered:
-        ids = sorted({int(p.get("steamAccountId") or 0) for p in players})
-        hint = ""
-        if raw_id >= STEAM_ID64_BASE:
-            hint = (
-                f" (you passed SteamID64; Stratz account id = {account_id})"
-            )
         raise RuntimeError(
-            f"Player not found in match (steamAccountId={account_id}{hint}). "
-            f"IDs in this match: {ids}"
+            f"Player with steamAccountId={account_id} not found in match"
         )
     return {**match, "players": filtered}
 
 
-def default_output_path(match_id: int, account_id: Optional[int]) -> str:
-    os.makedirs(MATCH_EXPORT_DIR, exist_ok=True)
-    if account_id is not None:
-        name = f"match_{match_id}_player_{account_id}.json"
-    else:
-        name = f"match_{match_id}.json"
-    return os.path.join(MATCH_EXPORT_DIR, name)
-
-
-def output_json(data: Dict[str, Any], out_path: Optional[str]) -> str:
+def output_json(data: Dict[str, Any], out_path: Optional[str]) -> None:
     if out_path:
-        os.makedirs(os.path.dirname(os.path.abspath(out_path)) or ".", exist_ok=True)
         with open(out_path, "w", encoding="utf-8") as fh:
             json.dump(data, fh, ensure_ascii=False, indent=2)
-        return os.path.abspath(out_path)
-
-    json.dump(data, sys.stdout, ensure_ascii=False, indent=2)
-    sys.stdout.write("\n")
-    return ""
+    else:
+        json.dump(data, sys.stdout, ensure_ascii=False, indent=2)
+        sys.stdout.write("\n")
 
 
 def parse_args() -> argparse.Namespace:
@@ -245,29 +216,12 @@ def parse_args() -> argparse.Namespace:
         description="Fetch full Stratz match player stats (MatchPlayerType) as JSON"
     )
     parser.add_argument("match_id", type=int, help="Dota 2 match ID")
-    parser.add_argument(
-        "--out",
-        nargs="?",
-        const="",
-        metavar="PATH",
-        help=(
-            "Write JSON to file. Without PATH saves to data/matches/match_<id>.json "
-            "(use --save as shortcut)"
-        ),
-    )
-    parser.add_argument(
-        "--save",
-        action="store_true",
-        help=f"Save JSON to {MATCH_EXPORT_DIR}/match_<id>.json (same as --out)",
-    )
+    parser.add_argument("--out", metavar="PATH", help="Write JSON to file instead of stdout")
     parser.add_argument(
         "--account-id",
         type=int,
-        metavar="ID",
-        help=(
-            "Keep one player: Stratz steamAccountId (e.g. 1138223098) "
-            "or SteamID64 from profile (e.g. 76561199098488826)"
-        ),
+        metavar="STEAM_ID",
+        help="Keep only one player (steamAccountId)",
     )
     parser.add_argument(
         "--verbose",
@@ -283,41 +237,15 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def resolve_out_path(
-    args: argparse.Namespace, match_id: int, account_id: Optional[int]
-) -> Optional[str]:
-    if args.save:
-        return default_output_path(match_id, account_id)
-    if args.out is not None:
-        if args.out == "":
-            return default_output_path(match_id, account_id)
-        return args.out
-    return None
-
-
 def main() -> int:
     args = parse_args()
     depth = max(1, args.depth)
-    account_id: Optional[int] = None
-    raw_account_id: Optional[int] = None
-
-    if args.account_id is not None:
-        raw_account_id = args.account_id
-        account_id = resolve_steam_account_id(raw_account_id)
-        if raw_account_id != account_id and args.verbose:
-            print(
-                f"Converted SteamID64 {raw_account_id} -> steamAccountId {account_id}",
-                file=sys.stderr,
-            )
 
     try:
         match = fetch_match(args.match_id, player_depth=depth, verbose=args.verbose)
-        if account_id is not None:
-            match = filter_player(match, account_id, raw_account_id)
-        out_path = resolve_out_path(args, args.match_id, account_id)
-        written = output_json(match, out_path)
-        if written:
-            print(f"Saved: {written}", file=sys.stderr)
+        if args.account_id is not None:
+            match = filter_player(match, args.account_id)
+        output_json(match, args.out)
     except (RuntimeError, requests.RequestException) as exc:
         print(str(exc), file=sys.stderr)
         return 1

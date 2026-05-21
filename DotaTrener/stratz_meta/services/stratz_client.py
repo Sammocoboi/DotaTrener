@@ -598,6 +598,27 @@ class StratzClient:
             by_time[t].append(row)
 
         builds: List[Dict[str, Any]] = []
+        endgame_seq = self._endgame_sequence_from_rows(rows)
+        if endgame_seq:
+            endgame_ids = {entry["id"] for entry in endgame_seq}
+            endgame_rows = [
+                r
+                for r in rows
+                if r.get("itemId") and int(r["itemId"]) in endgame_ids
+            ]
+            match_total = sum(int(r.get("matchCount") or 0) for r in endgame_rows)
+            win_total = sum(int(r.get("winCount") or 0) for r in endgame_rows)
+            builds.append(
+                {
+                    "build_type": "item",
+                    "sequence": endgame_seq,
+                    "pick_rate": 0.0,
+                    "win_rate": _win_rate(win_total, match_total),
+                    "games": match_total,
+                    "role": "endgame",
+                }
+            )
+
         for time_key in sorted(by_time.keys()):
             group = sorted(
                 by_time[time_key],
@@ -658,6 +679,15 @@ class StratzClient:
                 if len(builds) >= take:
                     break
         return builds[:take]
+
+    def _endgame_sequence_from_rows(
+        self, rows: List[Dict[str, Any]], limit: int = 6
+    ) -> List[Dict[str, Any]]:
+        from stratz_meta.match_items import build_endgame_sequence_from_purchase_rows
+
+        return build_endgame_sequence_from_purchase_rows(
+            rows, self.get_item_name, limit=limit
+        )
 
     def _fetch_skill_builds(
         self, hero_id: int, take: int, rank: Optional[str] = None
