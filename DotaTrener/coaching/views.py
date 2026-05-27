@@ -3,11 +3,11 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 
-from .models import Match, Review, Mistake
+from .models import Match, Review, Mistake,Hero
 from .serializers import (
     MatchSerializer, ReviewListSerializer, ReviewDetailSerializer, MistakeSerializer, 
 )
-
+from .serializers import HeroSerializer
 class MatchViewSet(viewsets.ModelViewSet):
     serializer_class = MatchSerializer
     # Пока разрешено всем авторизованным пользователям. 
@@ -78,3 +78,8 @@ class MistakeViewSet(viewsets.ModelViewSet):
         serializer.save(review=review)
 
 
+class HeroViewSet(viewsets.ReadOnlyModelViewSet):
+    """Только чтение списка героев"""
+    queryset = Hero.objects.all().order_by('localized_name')
+    serializer_class = HeroSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]  # можно разрешить всем

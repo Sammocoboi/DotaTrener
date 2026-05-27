@@ -5,3 +5,4 @@ class HeroMetaSerializer(serializers.ModelSerializer):
     class Meta:
         model = HeroMeta
         fields = '__all__'
+

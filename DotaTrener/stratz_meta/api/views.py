@@ -72,3 +72,4 @@ class HeroBuildViewSet(viewsets.ReadOnlyModelViewSet):
         if build_type:
             qs = qs.filter(build_type=build_type)
         return qs.order_by('-win_rate')
+
