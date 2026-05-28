@@ -1,20 +1,25 @@
-import axios from "axios";
+
 import { HeroMeta } from "@/types/herometa";
-import { Text, View, Button} from "react-native";
-import { useEffect, useState } from "react";
+import { Text, View} from "react-native";
+
 
 type Props = {
     herometa: HeroMeta;
 }
-const API_URLS_INFO = "http://127.0.0.1:8000/api/stratz/hero-meta/"
 
-const HeroCard = ({ herometa }: Props) => {
-    const 
+
+const HeroMetaCard = ({ herometa }: Props) => {
     return (
         <View>
-            <Text> {herometa.heroname}</Text>
-            <Text>Атрибут: {hero.primary_attr}</Text>
-            <Text>Роли: {hero.roles?.join(', ') || 'нет'}</Text>
+            <Text> {herometa.hero_name}</Text>
+            <Text>киллов в срднем: { herometa.avg_kills}</Text>
+            <Text>смертей в среднем: { herometa.avg_deaths}</Text>
+            <Text>средний гпм: {herometa.avg_gpm}</Text>
+            <Text>средний xpm {herometa.avg_xpm}</Text>
+            <Text>средний нетворс {herometa.avg_networth}</Text>
+            <Text>винрейт: {herometa.win_rate}</Text>
         </View>
     );
 };
+
+export default HeroMetaCard;
