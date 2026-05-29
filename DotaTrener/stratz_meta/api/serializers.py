@@ -17,12 +17,13 @@ class StratzPatchSerializer(serializers.ModelSerializer):
 
 class HeroMetaListSerializer(serializers.ModelSerializer):
     hero_name = serializers.CharField(source='hero.localized_name', read_only=True)
+    hero_image = serializers.CharField(source='hero.image_url', read_only=True)
     patch_version = serializers.CharField(source='patch.version', read_only=True)
 
     class Meta:
         model = HeroMeta
         fields = [
-            'id', 'hero', 'hero_name', 'patch_version',
+            'id', 'hero', 'hero_name', 'hero_image', 'patch_version',
             'win_rate', 'pick_rate', 'ban_rate', 'games_played',
             'avg_kills', 'avg_deaths', 'avg_assists', 'avg_gpm', 'avg_xpm',
             'avg_last_hits', 'avg_denies', 'avg_kda',
@@ -31,13 +32,14 @@ class HeroMetaListSerializer(serializers.ModelSerializer):
 
 class HeroMetaDetailSerializer(serializers.ModelSerializer):
     hero_name = serializers.CharField(source='hero.localized_name', read_only=True)
+    hero_image = serializers.CharField(source='hero.image_url', read_only=True)
     patch_version = serializers.CharField(source='patch.version', read_only=True)
     builds = HeroBuildSerializer(many=True, read_only=True)
 
     class Meta:
         model = HeroMeta
         fields = [
-            'id', 'hero', 'hero_name', 'patch_version',
+            'id', 'hero', 'hero_name', 'hero_image', 'patch_version',
             'win_rate', 'pick_rate', 'ban_rate', 'games_played',
             'roles', 'builds', 'updated_at',
             'avg_kills', 'avg_deaths', 'avg_assists', 'avg_gpm', 'avg_xpm',

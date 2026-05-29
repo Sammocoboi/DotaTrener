@@ -45,6 +45,7 @@ class Hero(models.Model):
         max_length=20,
         choices=[('str', 'Сила'), ('agi', 'Ловкость'), ('int', 'Интеллект'), ('uni', 'Универсал')]
     )
+    image_url = models.URLField(max_length=500, blank=True, default="")
     roles = models.JSONField(blank=True, null=True, help_text="Список ролей, напр. ['Carry', 'Nuker']")
 
     def __str__(self):

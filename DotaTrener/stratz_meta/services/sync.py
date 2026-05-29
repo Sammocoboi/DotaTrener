@@ -51,6 +51,7 @@ class StratzSyncService:
         versions = self.client.fetch_patches()
         if versions:
             StratzPatch.objects.update(is_current=False)
+            saved_names = []
             for gv in versions:
                 version = gv.get("name") or str(gv.get("id", ""))
                 if version:
@@ -58,7 +59,8 @@ class StratzSyncService:
                         version=version,
                         defaults={"release_date": None, "is_current": False},
                     )
-            target = target_version or versions[0].get("name") or str(versions[0].get("id", ""))
+                    saved_names.append(version)
+            target = target_version or saved_names[0] if saved_names else (target_version or settings.STRATZ_PATCH_VERSION)
         else:
             target = target_version or settings.STRATZ_PATCH_VERSION
             StratzPatch.objects.update(is_current=False)
@@ -67,7 +69,17 @@ class StratzSyncService:
                 defaults={"release_date": date.today(), "is_current": False},
             )
 
-        patch = StratzPatch.objects.get(version=target)
+        patch = StratzPatch.objects.filter(version=target).first()
+        if not patch and target_version:
+            for saved in StratzPatch.objects.all():
+                if saved.version.lower().startswith(target_version.lower()) or target_version.lower().startswith(saved.version.lower()):
+                    patch = saved
+                    break
+        if not patch:
+            patch, _ = StratzPatch.objects.update_or_create(
+                version=target,
+                defaults={"release_date": date.today(), "is_current": False},
+            )
         patch.is_current = True
         patch.save(update_fields=["is_current"])
         self.client.get_version_map()
@@ -94,12 +106,17 @@ class StratzSyncService:
                     or f"Hero {hero_id}"
                 )
                 primary_attr = attrs.get(int(hero_id), "str")
+                image_url = (
+                    hero.get("img")
+                    or f"https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/{hero.get('shortName') or name}.png"
+                )
                 _, created = Hero.objects.update_or_create(
                     steam_id=int(hero_id),
                     defaults={
                         "name": name[:100],
                         "localized_name": localized[:100],
                         "primary_attr": primary_attr,
+                        "image_url": image_url,
                     },
                 )
                 if created:
@@ -119,11 +136,17 @@ class StratzSyncService:
             return hero
         name = api_hero.get("name") or ""
         localized = api_hero.get("displayName") or name or f"Hero {hero_id}"
+        short_name = api_hero.get("shortName") or name
+        image_url = (
+            api_hero.get("img")
+            or f"https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/{short_name}.png"
+        )
         return Hero.objects.create(
             steam_id=int(hero_id),
             name=name[:100],
             localized_name=localized[:100],
             primary_attr="str",
+            image_url=image_url,
         )
 
     def save_hero_meta(

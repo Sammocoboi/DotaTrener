@@ -2,6 +2,7 @@ export type HeroMeta = {
   id: number;
   hero_id: number;
   hero_name: string;
+  hero_image: string;
   patch_version: string;
 
   pick_rate: number;        
