@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, FlatList, StyleSheet } from "react-native";
+import { router } from "expo-router";
 import axios from "axios";
 import { HeroMeta } from "@/types/herometa";
 import HeroMetaCard from "./HeroMetaCard";
@@ -65,7 +66,12 @@ const HeroMetaCardList = ({ searchQuery, selectedAttributes, selectedPositions }
     <FlatList
       data={filtered}
       keyExtractor={(item) => item.id.toString()}
-      renderItem={({ item }) => <HeroMetaCard herometa={item} />}
+      renderItem={({ item }) => (
+        <HeroMetaCard
+          herometa={item}
+          onPress={() => router.push({ pathname: "heroes/HeroDetail" as any, params: { hero_id: item.hero } })}
+        />
+      )}
       contentContainerStyle={styles.listPadding}
       scrollEnabled={false}
     />

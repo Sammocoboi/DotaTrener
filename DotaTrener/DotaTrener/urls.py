@@ -16,10 +16,13 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path,include
+from coaching.auth_views import SteamLoginView, SteamCallbackView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-     path('api/coaching/', include('coaching.urls')),
-    path('api/stratz/', include('stratz_meta.api.urls')),  # <-- новая строка
+    path('api/coaching/', include('coaching.urls')),
+    path('api/stratz/', include('stratz_meta.api.urls')),
     path('api-auth/', include('rest_framework.urls')),
+    path('api/auth/steam/login/', SteamLoginView.as_view(), name='steam-login'),
+    path('api/auth/steam/callback/', SteamCallbackView.as_view(), name='steam-callback'),
 ]

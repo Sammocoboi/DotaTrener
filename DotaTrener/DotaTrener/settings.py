@@ -23,6 +23,7 @@ INSTALLED_APPS = [
     
     # Сторонние приложения
     'rest_framework',
+    'rest_framework.authtoken',
     'django_filters',
     'corsheaders',
     # Ваши приложения
@@ -30,6 +31,7 @@ INSTALLED_APPS = [
     'stratz_meta',
 ]
 CORS_ALLOW_ALL_ORIGINS = True
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:8081")
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",  
     'django.middleware.security.SecurityMiddleware',

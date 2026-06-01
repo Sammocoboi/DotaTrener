@@ -202,8 +202,8 @@ def _format_internal_name(name: str) -> str:
 
 
 class StratzClient:
-    def __init__(self):
-        self.api_key = settings.STRATZ_API_KEY
+    def __init__(self, token: Optional[str] = None):
+        self.api_key = token or settings.STRATZ_API_KEY
         if not self.api_key:
             raise ValueError("STRATZ_API_KEY is not set")
         self.graphql_url = settings.STRATZ_API_URL
@@ -218,12 +218,15 @@ class StratzClient:
         )
         self._version_name_to_id: Optional[Dict[str, int]] = None
         self._item_names: Optional[Dict[int, str]] = None
+        self._item_shortnames: Optional[Dict[int, str]] = None
         self._ability_names: Optional[Dict[int, str]] = None
+        self._ability_shortnames: Optional[Dict[int, str]] = None
 
     def load_item_catalog(self) -> Dict[int, str]:
         if self._item_names is not None:
             return self._item_names
         catalog: Dict[int, str] = {}
+        shortnames: Dict[int, str] = {}
         data = self.graphql(ITEMS_QUERY)
         if data:
             for item in data.get("constants", {}).get("items", []):
@@ -236,6 +239,9 @@ class StratzClient:
                     or f"Item {item_id}"
                 )
                 catalog[int(item_id)] = str(label)[:100]
+                sn = item.get("shortName")
+                if sn:
+                    shortnames[int(item_id)] = sn
         if not catalog:
             rest_items = self.rest_list("item")
             for item in rest_items:
@@ -250,13 +256,23 @@ class StratzClient:
                 )
                 catalog[int(item_id)] = str(label)[:100]
         self._item_names = catalog
+        self._item_shortnames = shortnames
         logger.info("Loaded %s item names from Stratz", len(catalog))
         return catalog
+
+    def get_item_image_url(self, item_id: int) -> str:
+        if self._item_shortnames is None:
+            self.load_item_catalog()
+        sn = (self._item_shortnames or {}).get(item_id, "")
+        if sn:
+            return f"https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/items/{sn}.png"
+        return ""
 
     def load_ability_catalog(self) -> Dict[int, str]:
         if self._ability_names is not None:
             return self._ability_names
         catalog: Dict[int, str] = {}
+        shortnames: Dict[int, str] = {}
         data = self.graphql(ABILITIES_QUERY)
         if data:
             for ability in data.get("constants", {}).get("abilities", []):
@@ -270,9 +286,21 @@ class StratzClient:
                 if not label:
                     label = f"Ability {ability_id}"
                 catalog[int(ability_id)] = str(label)[:100]
+                sn = ability.get("name")
+                if sn:
+                    shortnames[int(ability_id)] = sn
         self._ability_names = catalog
+        self._ability_shortnames = shortnames
         logger.info("Loaded %s ability names from Stratz", len(catalog))
         return catalog
+
+    def get_ability_image_url(self, ability_id: int) -> str:
+        if self._ability_shortnames is None:
+            self.load_ability_catalog()
+        sn = (self._ability_shortnames or {}).get(ability_id, "")
+        if sn:
+            return f"https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/abilities/{sn}.png"
+        return ""
 
     def get_item_name(self, item_id: int) -> str:
         catalog = self.load_item_catalog()
@@ -789,3 +817,64 @@ class StratzClient:
                 }
             )
         return builds
+
+    def fetch_player_matches(
+        self,
+        steam_account_id: int,
+        take: int = 20,
+        patch_id: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        patch_frag = f", patch: {patch_id}" if patch_id else ""
+        query = f"""{{
+          player(steamAccountId: {steam_account_id}) {{
+            steamAccountId
+            winCount
+            matches(request: {{ take: {take}{patch_frag} }}) {{
+              id
+              didRadiantWin
+              startDateTime
+              gameMode
+              players {{
+                steamAccountId
+                heroId
+                isRadiant
+                kills
+                deaths
+                assists
+                goldPerMinute
+                experiencePerMinute
+                numLastHits
+                numDenies
+                heroDamage
+                towerDamage
+                networth
+              }}
+            }}
+          }}
+        }}"""
+        data = self.graphql(query)
+        if not data:
+            return []
+        player = data.get("player") or {}
+        return player.get("matches") or []
+
+    def fetch_player_profile(
+        self, steam_account_id: int
+    ) -> Optional[Dict[str, Any]]:
+        query = f"""{{
+          player(steamAccountId: {steam_account_id}) {{
+            steamAccountId
+            winCount
+            matches(request: {{ take: 1 }}) {{
+              startDateTime
+            }}
+          }}
+        }}"""
+        data = self.graphql(query)
+        if not data:
+            return None
+        player = data.get("player") or {}
+        win = int(player.get("winCount") or 0)
+        player["loseCount"] = 0
+        player["winRate"] = 0
+        return player

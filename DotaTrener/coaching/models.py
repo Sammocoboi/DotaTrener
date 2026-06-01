@@ -7,6 +7,18 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 class Player(models.Model):
     """Профиль игрока, который запрашивает разборы"""
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='player_profile')
+    steam_account_id = models.BigIntegerField(
+        null=True, blank=True, unique=True,
+        help_text="32-bit Steam Account ID (Stratz, OpenDota)",
+    )
+    steam_id_64 = models.BigIntegerField(
+        null=True, blank=True,
+        help_text="64-bit Steam ID (Steam OpenID)",
+    )
+    stratz_token = models.CharField(
+        max_length=500, blank=True, default="",
+        help_text="Персональный Stratz API токен (stratz.com/api → скопировать)",
+    )
     current_mmr = models.IntegerField(default=0, help_text="Текущий рейтинг MMR")
     peak_mmr = models.IntegerField(default=0)
     favorite_role = models.CharField(max_length=50, blank=True, null=True)
@@ -94,6 +106,96 @@ class Match(models.Model):
         ]
         verbose_name = "Матч"
         verbose_name_plural = "Матчи"
+
+
+class Item(models.Model):
+    """Предмет Dota 2 (синхронизация из Stratz API)"""
+    steam_id = models.PositiveIntegerField(unique=True, help_text="Item ID из Dota 2 API")
+    name = models.CharField(max_length=200, blank=True, default="")
+    display_name = models.CharField(max_length=200, blank=True, default="")
+    short_name = models.CharField(max_length=100, blank=True, default="")
+    image_url = models.URLField(max_length=500, blank=True, default="")
+
+    description = models.TextField(blank=True, default="", help_text="Описание предмета")
+    lore = models.TextField(blank=True, default="", help_text="Лор / flavor text")
+    notes = models.JSONField(blank=True, null=True, help_text="Примечания (список строк)")
+    attributes_text = models.JSONField(blank=True, null=True, help_text="Атрибуты (список строк из language)")
+
+    cost = models.IntegerField(default=0, help_text="Стоимость в золоте")
+    mana_cost = models.JSONField(blank=True, null=True, help_text="Стоимость маны по уровням")
+    cooldown = models.JSONField(blank=True, null=True, help_text="Кулдаун по уровням")
+    cast_range = models.JSONField(blank=True, null=True, help_text="Дальность применения")
+    shop_tags = models.CharField(max_length=200, blank=True, default="")
+    quality = models.CharField(max_length=50, blank=True, default="")
+
+    is_sellable = models.BooleanField(default=True)
+    is_droppable = models.BooleanField(default=True)
+    is_purchasable = models.BooleanField(default=True)
+    is_stackable = models.BooleanField(default=False)
+    is_support = models.BooleanField(default=False)
+    is_recipe = models.BooleanField(default=False)
+    needs_components = models.BooleanField(default=False)
+
+    neutral_item_tier = models.CharField(max_length=20, blank=True, default="", help_text="Тир нейтрального предмета")
+    attributes = models.JSONField(blank=True, null=True, help_text="Атрибуты предмета [{name, value}]")
+    components = models.JSONField(blank=True, null=True, help_text="ID предметов-компонентов")
+
+    api_data = models.JSONField(blank=True, null=True, help_text="Сырой JSON из API")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.display_name or self.name or f"Item {self.steam_id}"
+
+    class Meta:
+        verbose_name = "Предмет"
+        verbose_name_plural = "Предметы"
+
+
+class Ability(models.Model):
+    """Способность Dota 2 (синхронизация из Stratz API)"""
+    steam_id = models.PositiveIntegerField(unique=True, help_text="Ability ID из Dota 2 API")
+    name = models.CharField(max_length=200, blank=True, default="")
+    display_name = models.CharField(max_length=200, blank=True, default="")
+    image_url = models.URLField(max_length=500, blank=True, default="")
+
+    description = models.JSONField(blank=True, null=True, help_text="Описание способности (список строк)")
+    lore = models.TextField(blank=True, default="", help_text="Лор")
+    notes = models.JSONField(blank=True, null=True, help_text="Примечания (список строк)")
+    attributes_text = models.JSONField(blank=True, null=True, help_text="Атрибуты (список строк)")
+    aghanim_description = models.TextField(blank=True, default="", help_text="Описание апгрейда Аганима")
+    shard_description = models.TextField(blank=True, default="", help_text="Описание апгрейда Шарда")
+
+    ability_type = models.IntegerField(default=0, help_text="Тип способности (0=basic, 1=ultimate, ...)")
+    behavior = models.BigIntegerField(default=0, help_text="Битовая маска поведения")
+    unit_damage_type = models.IntegerField(default=0, help_text="Тип урона")
+    spell_immunity = models.IntegerField(default=0, help_text="Взаимодействие с spell immunity")
+    max_level = models.SmallIntegerField(default=4, help_text="Максимальный уровень")
+    is_ultimate = models.BooleanField(default=False)
+    has_scepter_upgrade = models.BooleanField(default=False)
+    has_shard_upgrade = models.BooleanField(default=False)
+    is_innate = models.BooleanField(default=False, help_text="Врождённая способность")
+    is_talent = models.BooleanField(default=False, help_text="Талант")
+
+    cooldown = models.JSONField(blank=True, null=True, help_text="Кулдаун по уровням")
+    mana_cost = models.JSONField(blank=True, null=True, help_text="Стоимость маны по уровням")
+    damage = models.JSONField(blank=True, null=True, help_text="Урон по уровням")
+    cast_range = models.JSONField(blank=True, null=True, help_text="Дальность по уровням")
+    cast_point = models.JSONField(blank=True, null=True, help_text="Задержка применения")
+    channel_time = models.JSONField(blank=True, null=True, help_text="Время канала")
+    duration = models.CharField(max_length=100, blank=True, default="", help_text="Длительность")
+    charges = models.CharField(max_length=100, blank=True, default="", help_text="Заряды")
+
+    attributes = models.JSONField(blank=True, null=True, help_text="Атрибуты [{name, value}]")
+
+    api_data = models.JSONField(blank=True, null=True, help_text="Сырой JSON из API")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.display_name or self.name or f"Ability {self.steam_id}"
+
+    class Meta:
+        verbose_name = "Способность"
+        verbose_name_plural = "Способности"
 
 
 class MistakeCategory(models.Model):

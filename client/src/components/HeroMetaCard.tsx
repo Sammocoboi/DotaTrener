@@ -1,18 +1,19 @@
 import React from "react";
-import { View, Text, Image, StyleSheet } from "react-native";
+import { View, Text, Image, StyleSheet, Pressable } from "react-native";
 import { HeroMeta } from "@/types/herometa";
 
 type Props = {
   herometa: HeroMeta;
+  onPress?: () => void;
 };
 
-const HeroMetaCard = ({ herometa }: Props) => {
+const HeroMetaCard = ({ herometa, onPress }: Props) => {
   const winPercent = herometa.win_rate.toFixed(1);
   const pickPercent = herometa.pick_rate.toFixed(1);
   const banPercent = herometa.ban_rate.toFixed(1);
 
   return (
-    <View style={styles.card}>
+    <Pressable onPress={onPress} style={styles.card}>
       <View style={styles.header}>
         {herometa.hero_image ? (
           <Image source={{ uri: herometa.hero_image }} style={styles.heroImage} />
@@ -59,7 +60,7 @@ const HeroMetaCard = ({ herometa }: Props) => {
           ))}
         </View>
       )}
-    </View>
+    </Pressable>
   );
 };
 

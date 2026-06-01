@@ -5,7 +5,7 @@ from .models import Hero, Match, Review, Mistake, MistakeCategory
 class HeroSerializer(serializers.ModelSerializer):
     class Meta:
         model = Hero
-        fields = ['id', 'name', 'localized_name', 'primary_attr', 'roles']
+        fields = ['id', 'name', 'localized_name', 'primary_attr', 'roles', 'image_url']
 
 
 class MistakeSerializer(serializers.ModelSerializer):
