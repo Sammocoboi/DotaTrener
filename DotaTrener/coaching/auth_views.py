@@ -67,9 +67,10 @@ def _get_or_create_user(steam_id: str) -> tuple[User, bool]:
     from coaching.models import Player
 
     player, _ = Player.objects.get_or_create(user=user)
-    player.steam_account_id = account_id
-    player.steam_id_64 = steam_id_64
-    player.save(update_fields=["steam_account_id", "steam_id_64"])
+    if not player.steam_account_id:
+        player.steam_account_id = account_id
+        player.steam_id_64 = steam_id_64
+        player.save(update_fields=["steam_account_id", "steam_id_64"])
 
     return user, created
 

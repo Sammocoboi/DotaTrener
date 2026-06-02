@@ -595,7 +595,7 @@ class StratzClient:
         hero_id: int,
         build_type: str,
         patch_id: Optional[str] = None,
-        rank: Optional[str] = None,
+        rank: Optional[str] = "DIVINE_IMMORTAL",
         take: int = 100,
     ) -> List[Dict[str, Any]]:
         if build_type == "item":
@@ -724,99 +724,137 @@ class StratzClient:
         query = f"""{{
           heroStats {{
             abilityMaxLevel(heroId: {hero_id}{bracket_frag}) {{ abilityId level winCount matchCount }}
-            abilityMinLevel(heroId: {hero_id}{bracket_frag}) {{ abilityId level winCount matchCount }}
           }}
         }}"""
         data = self.graphql(query)
         if not data:
             return []
         hs = data.get("heroStats", {})
-        rows = list(hs.get("abilityMaxLevel") or []) + list(hs.get("abilityMinLevel") or [])
-        rows.sort(key=lambda r: (int(r.get("level") or 0), -int(r.get("matchCount") or 0)))
+        rows = list(hs.get("abilityMaxLevel") or [])
+        if not rows:
+            return []
 
-        by_level: Dict[int, Dict[str, Any]] = {}
+        by_ability: Dict[int, Dict[str, int]] = {}
         for row in rows:
-            level = int(row.get("level") or 0)
-            if level not in by_level or int(row.get("matchCount") or 0) > int(
-                by_level[level].get("matchCount") or 0
-            ):
-                by_level[level] = row
-
-        if by_level:
-            seq = [
-                {
-                    "id": int(by_level[lvl]["abilityId"]),
-                    "name": self.get_ability_name(
-                        int(by_level[lvl]["abilityId"]), level=lvl
-                    ),
-                }
-                for lvl in sorted(by_level.keys())
-                if by_level[lvl].get("abilityId")
-            ]
-            if seq:
-                match_total = max(int(r.get("matchCount") or 0) for r in by_level.values())
-                win_total = max(int(r.get("winCount") or 0) for r in by_level.values())
-                top_build = {
-                    "build_type": "skill",
-                    "sequence": seq,
-                    "pick_rate": 0.0,
-                    "win_rate": _win_rate(win_total, match_total),
-                    "games": match_total,
-                    "role": "",
-                }
-                extra = []
-                for row in sorted(rows, key=lambda r: int(r.get("matchCount") or 0), reverse=True)[
-                    : take - 1
-                ]:
-                    aid = row.get("abilityId")
-                    if not aid:
-                        continue
-                    level = int(row.get("level") or 0)
-                    mc = int(row.get("matchCount") or 0)
-                    wc = int(row.get("winCount") or 0)
-                    extra.append(
-                        {
-                            "build_type": "skill",
-                            "sequence": [
-                                {
-                                    "id": int(aid),
-                                    "name": self.get_ability_name(
-                                        int(aid), level=level
-                                    ),
-                                }
-                            ],
-                            "pick_rate": 0.0,
-                            "win_rate": _win_rate(wc, mc),
-                            "games": mc,
-                            "role": "",
-                        }
-                    )
-                return [top_build] + extra
-
-        builds = []
-        for row in sorted(rows, key=lambda r: int(r.get("matchCount") or 0), reverse=True)[:take]:
             aid = row.get("abilityId")
-            if not aid:
-                continue
-            level = int(row.get("level") or 0)
+            lvl = int(row.get("level") or 0)
             mc = int(row.get("matchCount") or 0)
             wc = int(row.get("winCount") or 0)
-            builds.append(
-                {
-                    "build_type": "skill",
-                    "sequence": [
-                        {
-                            "id": int(aid),
-                            "name": self.get_ability_name(int(aid), level=level),
-                        }
-                    ],
-                    "pick_rate": 0.0,
-                    "win_rate": _win_rate(wc, mc),
-                    "games": mc,
-                    "role": "",
-                }
-            )
-        return builds
+            if aid is None or mc <= 0 or lvl <= 0:
+                continue
+            aid = int(aid)
+            if aid not in by_ability or mc > by_ability[aid].get("matchCount", 0):
+                by_ability[aid] = {"level": lvl, "matchCount": mc, "winCount": wc}
+
+        if not by_ability:
+            return []
+
+        ordered = sorted(by_ability.items(), key=lambda x: x[1]["level"])
+        ability_ids = [int(aid) for aid, _ in ordered if aid]
+
+        first = ability_ids[0] if len(ability_ids) > 0 else None
+        second = ability_ids[1] if len(ability_ids) > 1 else None
+        third = ability_ids[2] if len(ability_ids) > 2 else None
+        ult = next((a for a in ability_ids[3:] if a != first and a != second and a != third), None)
+
+        level_map = {
+            1: first, 2: first, 3: second or first,
+            4: first, 5: first,
+            6: ult or third or first,
+            7: (second or first) if (second and first) else first,
+            8: (third or second or first) if (first and second) else first,
+            9: (third or second or first) if (first and second) else first,
+            10: (second or first) if (first and second) else first,
+        }
+
+        seq = [
+            {"id": level_map[lvl], "name": self.get_ability_name(level_map[lvl])}
+            for lvl in range(1, 11)
+            if level_map.get(lvl)
+        ]
+
+        match_total = max(v["matchCount"] for v in by_ability.values())
+        win_total = max(v["winCount"] for v in by_ability.values())
+        top_build = {
+            "build_type": "skill",
+            "sequence": seq,
+            "pick_rate": 0.0,
+            "win_rate": _win_rate(win_total, match_total) if match_total else 0.0,
+            "games": match_total,
+            "role": "",
+        }
+        return [top_build]
+
+    def fetch_hero_talents(
+        self,
+        hero_id: int,
+        rank: Optional[str] = "DIVINE_IMMORTAL",
+    ) -> List[Dict[str, Any]]:
+        bracket_frag = _bracket_basic_frag(rank)
+        query = f"""{{
+          heroStats {{
+            talent(heroId: {hero_id}{bracket_frag}) {{ abilityId matchCount winCount }}
+            abilityMinLevel(heroId: {hero_id}{bracket_frag}) {{ abilityId matchCount level }}
+          }}
+        }}"""
+        data = self.graphql(query)
+        if not data:
+            return []
+        hs = data.get("heroStats", {})
+        talents = list(hs.get("talent") or [])
+        min_levels = list(hs.get("abilityMinLevel") or [])
+        if not talents:
+            return []
+
+        tal_ids = [t["abilityId"] for t in talents]
+
+        level_map: Dict[int, Tuple[int, int]] = {}
+        for m in min_levels:
+            aid = m.get("abilityId")
+            mc = m.get("matchCount") or 0
+            lvl = m.get("level") or 0
+            if aid in tal_ids and mc > level_map.get(aid, (0,))[0]:
+                level_map[aid] = (mc, lvl)
+
+        sorted_tal = sorted(
+            talents,
+            key=lambda t: level_map.get(t["abilityId"], (0, 99))[1],
+        )
+
+        tiers = [10, 10, 15, 15, 20, 20, 25, 25]
+
+        result: List[Dict[str, Any]] = []
+        tier_games: Dict[int, int] = {}
+        for i, t in enumerate(sorted_tal):
+            if i >= 8:
+                break
+            tier = tiers[i]
+            mc = int(t.get("matchCount") or 0)
+            tier_games[tier] = tier_games.get(tier, 0) + mc
+
+        for i, t in enumerate(sorted_tal):
+            if i >= 8:
+                break
+            aid = t["abilityId"]
+            tier = tiers[i]
+            mc = int(t.get("matchCount") or 0)
+            wc = int(t.get("winCount") or 0)
+            total = tier_games.get(tier, 1)
+            pick_rate = round(mc / total * 100, 1) if total else 0
+            win_rate = _win_rate(wc, mc)
+            slot = "left" if i % 2 == 0 else "right"
+            result.append({
+                "abilityId": aid,
+                "tier": tier,
+                "slot": slot,
+                "name": self.get_ability_name(aid),
+                "matchCount": mc,
+                "winCount": wc,
+                "win_rate": win_rate,
+                "pick_rate": pick_rate,
+            })
+
+        return result
 
     def fetch_player_matches(
         self,
@@ -878,3 +916,22 @@ class StratzClient:
         player["loseCount"] = 0
         player["winRate"] = 0
         return player
+
+    def fetch_player_rank(self, steam_account_id: int) -> Dict[str, Any]:
+        query = f"""{{
+          player(steamAccountId: {steam_account_id}) {{
+            steamAccountId
+            steamAccount {{
+              seasonRank
+              seasonLeaderboardRank
+            }}
+          }}
+        }}"""
+        data = self.graphql(query)
+        if not data:
+            return {"seasonRank": 0, "seasonLeaderboardRank": None}
+        sa = data.get("player", {}).get("steamAccount", {})
+        return {
+            "seasonRank": sa.get("seasonRank") or 0,
+            "seasonLeaderboardRank": sa.get("seasonLeaderboardRank"),
+        }

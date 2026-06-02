@@ -22,6 +22,7 @@ class Player(models.Model):
     current_mmr = models.IntegerField(default=0, help_text="Текущий рейтинг MMR")
     peak_mmr = models.IntegerField(default=0)
     favorite_role = models.CharField(max_length=50, blank=True, null=True)
+    is_coach = models.BooleanField(default=False, help_text="Зарегистрирован как тренер")
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -35,17 +36,67 @@ class Player(models.Model):
 class Coach(models.Model):
     """Профиль тренера"""
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='coach_profile')
+    title = models.CharField(max_length=200, blank=True, default="", help_text="Звание (напр. Immortal Coach, Pro Coach)")
     specialization = models.CharField(max_length=100, blank=True, help_text="Специализация (позиция, герои, меты)")
     bio = models.TextField(blank=True)
     rating = models.FloatField(default=0.0, validators=[MinValueValidator(0.0), MaxValueValidator(5.0)])
+    mmr_verified = models.IntegerField(default=0, help_text="MMR на момент верификации тренера")
+    mmr_verified_at = models.DateTimeField(null=True, blank=True, help_text="Дата последней верификации MMR")
     created_at = models.DateTimeField(auto_now_add=True)
 
+    def is_eligible(self) -> bool:
+        return self.mmr_verified >= 80
+
     def __str__(self):
-        return f"Coach: {self.user.username}"
+        return self.title or f"Coach: {self.user.username}"
 
     class Meta:
         verbose_name = "Тренер"
         verbose_name_plural = "Тренеры"
+
+
+class CoachService(models.Model):
+    """Услуга тренера"""
+    coach = models.ForeignKey(Coach, on_delete=models.CASCADE, related_name='services')
+    title = models.CharField(max_length=200, help_text="Название услуги")
+    description = models.TextField(blank=True, help_text="Описание")
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Цена в USD/RUB")
+    duration_minutes = models.PositiveIntegerField(default=60, help_text="Длительность в минутах")
+    is_active = models.BooleanField(default=True, help_text="Активна ли услуга")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.title} ({self.coach.user.username})"
+
+    class Meta:
+        verbose_name = "Услуга тренера"
+        verbose_name_plural = "Услуги тренеров"
+
+
+class CoachApplication(models.Model):
+    """Заявка на становление тренером"""
+    STATUS_CHOICES = [
+        ("pending", "На рассмотрении"),
+        ("accepted", "Принята"),
+        ("rejected", "Отклонена"),
+    ]
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="coach_applications")
+    message = models.TextField(blank=True, help_text="Почему хочешь стать тренером?")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
+    created_at = models.DateTimeField(auto_now_add=True)
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    reviewed_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="reviewed_applications",
+    )
+
+    def __str__(self):
+        return f"Application: {self.user.username} ({self.status})"
+
+    class Meta:
+        verbose_name = "Заявка тренера"
+        verbose_name_plural = "Заявки тренеров"
+        ordering = ["-created_at"]
 
 
 class Hero(models.Model):

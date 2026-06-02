@@ -3,9 +3,11 @@ from rest_framework.decorators import action, api_view, permission_classes as pe
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 
-from .models import Match, Review, Mistake, Hero, Player
+from django.utils import timezone
+from .models import Match, Review, Mistake, Hero, Player, Coach, CoachService, CoachApplication
 from .serializers import (
     MatchSerializer, ReviewListSerializer, ReviewDetailSerializer, MistakeSerializer,
+    CoachListSerializer, CoachDetailSerializer, CoachServiceSerializer,
 )
 from .serializers import HeroSerializer
 class MatchViewSet(viewsets.ModelViewSet):
@@ -83,7 +85,11 @@ class HeroViewSet(viewsets.ReadOnlyModelViewSet):
 @api_view(["POST"])
 @perm([permissions.IsAuthenticated])
 def link_steam_account(request):
-    """Привязать Steam Account ID к профилю игрока"""
+    """Привязать Steam Account ID (только при регистрации)"""
+    player, _ = Player.objects.get_or_create(user=request.user)
+    if player.steam_account_id:
+        return Response({"error": "Steam аккаунт уже привязан. Перепривязка запрещена."}, status=400)
+
     steam_id = request.data.get("steam_account_id")
     if not steam_id:
         return Response({"error": "steam_account_id обязателен"}, status=400)
@@ -92,7 +98,6 @@ def link_steam_account(request):
     except (TypeError, ValueError):
         return Response({"error": "steam_account_id должен быть числом"}, status=400)
 
-    player, _ = Player.objects.get_or_create(user=request.user)
     player.steam_account_id = steam_id
     player.save(update_fields=["steam_account_id"])
     return Response({"steam_account_id": player.steam_account_id})
@@ -214,9 +219,228 @@ def fetch_my_matches(request):
 
 
 @api_view(["GET"])
+def coach_list(request):
+    """Список всех тренеров"""
+    coaches = Coach.objects.filter(user__player_profile__is_coach=True).select_related('user__player_profile')
+    serializer = CoachListSerializer(coaches, many=True)
+    return Response(serializer.data)
+
+
+@api_view(["GET"])
+def coach_detail(request, coach_id):
+    """Детальная информация о тренере + его услуги"""
+    coach = get_object_or_404(Coach, id=coach_id)
+    serializer = CoachDetailSerializer(coach)
+    return Response(serializer.data)
+
+
+@api_view(["GET", "POST"])
+@perm([permissions.IsAuthenticated])
+def my_services(request):
+    """Услуги текущего тренера"""
+    coach = getattr(request.user, "coach_profile", None)
+    if not coach:
+        return Response({"error": "Вы не тренер"}, status=400)
+
+    if request.method == "POST":
+        serializer = CoachServiceSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(coach=coach)
+            return Response(serializer.data, status=201)
+        return Response(serializer.errors, status=400)
+
+    services = coach.services.all()
+    serializer = CoachServiceSerializer(services, many=True)
+    return Response(serializer.data)
+
+
+@api_view(["PATCH", "DELETE"])
+@perm([permissions.IsAuthenticated])
+def my_service_detail(request, service_id):
+    """Изменить/удалить услугу"""
+    coach = getattr(request.user, "coach_profile", None)
+    if not coach:
+        return Response({"error": "Вы не тренер"}, status=400)
+    service = get_object_or_404(CoachService, id=service_id, coach=coach)
+
+    if request.method == "DELETE":
+        service.delete()
+        return Response(status=204)
+
+    serializer = CoachServiceSerializer(service, data=request.data, partial=True)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data)
+    return Response(serializer.errors, status=400)
+
+
+@api_view(["GET", "PATCH"])
+@perm([permissions.IsAuthenticated])
+def profile(request):
+    """Профиль пользователя: Player + Coach + Steam rank"""
+    player, _ = Player.objects.get_or_create(user=request.user)
+    coach = getattr(request.user, "coach_profile", None)
+
+    if request.method == "PATCH":
+        data = request.data
+        if "favorite_role" in data:
+            player.favorite_role = data["favorite_role"]
+            player.save(update_fields=["favorite_role"])
+        if "stratz_token" in data:
+            player.stratz_token = data["stratz_token"]
+            player.save(update_fields=["stratz_token"])
+        if coach and "bio" in data:
+            coach.bio = data["bio"]
+            coach.save(update_fields=["bio"])
+        if coach and "specialization" in data:
+            coach.specialization = data["specialization"]
+            coach.save(update_fields=["specialization"])
+
+    from stratz_meta.services import StratzClient
+    client = StratzClient(token=player.stratz_token if player.stratz_token else None)
+    rank_data = client.fetch_player_rank(player.steam_account_id) if player.steam_account_id else {}
+
+    return Response({
+        "user": {
+            "id": request.user.id,
+            "username": request.user.username,
+            "date_joined": request.user.date_joined,
+            "is_staff": request.user.is_staff,
+        },
+        "player": {
+            "steam_account_id": player.steam_account_id,
+            "steam_id_64": player.steam_id_64,
+            "stratz_token": bool(player.stratz_token),
+            "current_mmr": player.current_mmr,
+            "peak_mmr": player.peak_mmr,
+            "favorite_role": player.favorite_role,
+            "is_coach": player.is_coach,
+        },
+        "coach": {
+            "specialization": coach.specialization if coach else "",
+            "bio": coach.bio if coach else "",
+            "rating": coach.rating if coach else 0.0,
+            "mmr_verified": coach.mmr_verified if coach else 0,
+            "mmr_verified_at": coach.mmr_verified_at if coach else None,
+        } if coach else None,
+        "rank": {
+            "season_rank": rank_data.get("seasonRank", 0),
+            "leaderboard_rank": rank_data.get("seasonLeaderboardRank"),
+            "season_rank_label": _rank_label(rank_data.get("seasonRank", 0)),
+            "is_immortal": (rank_data.get("seasonRank", 0) or 0) >= 80,
+        } if rank_data else None,
+    })
+
+
+def _rank_label(season_rank: int) -> str:
+    MEDALS = [
+        (1, "Herald"), (2, "Guardian"), (3, "Crusader"),
+        (4, "Archon"), (5, "Legend"), (6, "Ancient"),
+        (7, "Divine"),
+    ]
+    if season_rank <= 0:
+        return "Uncalibrated"
+    if season_rank >= 80:
+        return "Immortal"
+    medal_id = season_rank // 10
+    star = season_rank % 10
+    for mid, name in MEDALS:
+        if medal_id == mid:
+            return f"{name} {star}" if 1 <= star <= 5 else name
+    return f"Rank {season_rank}"
+
+
+@api_view(["POST"])
+@perm([permissions.IsAuthenticated])
+def become_coach(request):
+    """Подать заявку на становление тренером"""
+    player, _ = Player.objects.get_or_create(user=request.user)
+    if not player.steam_account_id:
+        return Response({"error": "Сначала привяжи Steam аккаунт"}, status=400)
+
+    existing = CoachApplication.objects.filter(user=request.user, status="pending").first()
+    if existing:
+        return Response({"error": "У тебя уже есть активная заявка"}, status=400)
+
+    message = request.data.get("message", "")
+    application = CoachApplication.objects.create(user=request.user, message=message)
+
+    return Response({
+        "ok": True,
+        "application": {
+            "id": application.id,
+            "status": application.status,
+            "message": application.message,
+            "created_at": application.created_at,
+        },
+    })
+
+
+@api_view(["GET"])
+@perm([permissions.IsAuthenticated])
+def my_application(request):
+    """Статус моей заявки"""
+    app = CoachApplication.objects.filter(user=request.user).order_by("-created_at").first()
+    if not app:
+        return Response({"application": None})
+    return Response({
+        "application": {
+            "id": app.id,
+            "status": app.status,
+            "message": app.message,
+            "created_at": app.created_at,
+            "reviewed_at": app.reviewed_at,
+        }
+    })
+
+
+@api_view(["GET", "POST"])
+@perm([permissions.IsAdminUser])
+def applications_list(request):
+    """Список заявок (для админа)"""
+    if request.method == "POST":
+        app_id = request.data.get("application_id")
+        action = request.data.get("action")
+        app = get_object_or_404(CoachApplication, id=app_id)
+
+        if action == "accept":
+            app.status = "accepted"
+            app.reviewed_at = timezone.now()
+            app.reviewed_by = request.user
+            app.save()
+
+            player, _ = Player.objects.get_or_create(user=app.user)
+            player.is_coach = True
+            player.save(update_fields=["is_coach"])
+
+            Coach.objects.get_or_create(user=app.user)
+        elif action == "reject":
+            app.status = "rejected"
+            app.reviewed_at = timezone.now()
+            app.reviewed_by = request.user
+            app.save()
+        else:
+            return Response({"error": "Действие должно быть accept или reject"}, status=400)
+
+        return Response({"ok": True, "status": app.status})
+
+    status_filter = request.query_params.get("status", "pending")
+    apps = CoachApplication.objects.filter(status=status_filter).order_by("-created_at")
+    return Response([{
+        "id": a.id,
+        "user_id": a.user.id,
+        "username": a.user.username,
+        "message": a.message,
+        "status": a.status,
+        "created_at": a.created_at,
+    } for a in apps])
+
+
+@api_view(["GET"])
 @perm([permissions.IsAuthenticatedOrReadOnly])
 def hero_builds(request, hero_id):
     """Сборки героя из Stratz API (предметы + скиллы)"""
+    from django.core.cache import cache
     from stratz_meta.services import StratzClient
     from coaching.models import Hero, Item, Ability
 
@@ -224,12 +448,18 @@ def hero_builds(request, hero_id):
     if not hero:
         return Response({"error": "Герой не найден"}, status=404)
 
+    cache_key = f"hero_builds:v2:{hero_id}:DIVINE_IMMORTAL"
+    cached = cache.get(cache_key)
+    if cached:
+        return Response(cached)
+
     client = StratzClient()
     client.load_item_catalog()
     client.load_ability_catalog()
 
     item_builds = client.fetch_hero_builds(int(hero_id), "item", take=20)
     skill_builds = client.fetch_hero_builds(int(hero_id), "skill", take=10)
+    talent_builds = client.fetch_hero_talents(int(hero_id))
 
     def enrich_items(builds):
         result = []
@@ -273,13 +503,33 @@ def hero_builds(request, hero_id):
             })
         return result
 
-    return Response({
+    def enrich_talents(talents):
+        result = []
+        for t in talents:
+            aid = t["abilityId"]
+            ability_obj = Ability.objects.filter(steam_id=aid).first() if aid else None
+            result.append({
+                "abilityId": aid,
+                "tier": t["tier"],
+                "slot": t["slot"],
+                "name": ability_obj.display_name if ability_obj else t.get("name", f"Ability {aid}"),
+                "image": ability_obj.image_url if ability_obj else (client.get_ability_image_url(aid) if aid else ""),
+                "matchCount": t.get("matchCount", 0),
+                "win_rate": t.get("win_rate", 0),
+                "pick_rate": t.get("pick_rate", 0),
+            })
+        return result
+
+    result = {
         "hero_id": hero.steam_id,
         "hero_name": hero.localized_name,
         "hero_image": hero.image_url,
         "item_builds": enrich_items(item_builds),
         "skill_builds": enrich_skills(skill_builds),
-    })
+        "talent_builds": enrich_talents(talent_builds),
+    }
+    cache.set(cache_key, result, 60 * 60)
+    return Response(result)
 
 
 MATCH_DETAIL_QUERY = """{
@@ -307,6 +557,22 @@ MATCH_DETAIL_QUERY = """{
       item3Id
       item4Id
       item5Id
+      backpack0Id
+      backpack1Id
+      backpack2Id
+      neutral0Id
+      playbackData {
+        purchaseEvents {
+          time
+          itemId
+        }
+      }
+      abilities {
+        abilityId
+        time
+        level
+        isTalent
+      }
     }
   }
 }"""
@@ -337,11 +603,20 @@ def match_detail(request, match_id):
     hero_lookup = {h.steam_id: h for h in hero_objs}
 
     client.load_item_catalog()
+    client.load_ability_catalog()
 
     players = []
     for p in all_players:
         hid = p.get("heroId")
         hero_obj = hero_lookup.get(int(hid)) if hid else None
+
+        purchase_events = (p.get("playbackData") or {}).get("purchaseEvents") or []
+        purchase_time = {}
+        for ev in purchase_events:
+            iid = ev.get("itemId")
+            t = ev.get("time")
+            if iid is not None and t is not None:
+                purchase_time[int(iid)] = int(t)
 
         items = []
         for j in range(6):
@@ -351,7 +626,52 @@ def match_detail(request, match_id):
                     "id": iid,
                     "name": client.get_item_name(int(iid)),
                     "image": client.get_item_image_url(int(iid)),
+                    "time": purchase_time.get(int(iid)),
                 })
+        for j in range(3):
+            iid = p.get(f"backpack{j}Id")
+            if iid:
+                items.append({
+                    "id": iid,
+                    "name": client.get_item_name(int(iid)),
+                    "image": client.get_item_image_url(int(iid)),
+                    "time": purchase_time.get(int(iid)),
+                })
+        nid = p.get("neutral0Id")
+        if nid:
+            items.append({
+                "id": nid,
+                "name": client.get_item_name(int(nid)),
+                "image": client.get_item_image_url(int(nid)),
+                "time": purchase_time.get(int(nid)),
+            })
+        items.sort(key=lambda x: x.get("time") or 0)
+
+        raw_abilities = p.get("abilities") or []
+        abilities = []
+        talents = []
+        for ab in raw_abilities:
+            aid = ab.get("abilityId")
+            if aid is not None:
+                aid = int(aid)
+                if ab.get("isTalent"):
+                    talents.append({
+                        "id": aid,
+                        "name": client.get_ability_name(aid),
+                        "image": client.get_ability_image_url(aid),
+                        "level": ab.get("level", 1),
+                        "time": ab.get("time"),
+                    })
+                else:
+                    abilities.append({
+                        "id": aid,
+                        "name": client.get_ability_name(aid),
+                        "image": client.get_ability_image_url(aid),
+                        "level": ab.get("level", 1),
+                        "time": ab.get("time"),
+                    })
+        abilities.sort(key=lambda a: a.get("time") or 0)
+        talents.sort(key=lambda a: a.get("level") or 0)
 
         players.append({
             "hero_id": hid,
@@ -369,6 +689,8 @@ def match_detail(request, match_id):
             "tower_damage": p.get("towerDamage", 0),
             "networth": p.get("networth", 0),
             "items": items,
+            "abilities": abilities,
+            "talents": talents,
         })
 
     return Response({

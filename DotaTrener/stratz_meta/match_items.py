@@ -34,28 +34,28 @@ def extract_final_items(
     return items
 
 
-def format_purchase_time(seconds: int | None) -> str:
-    """Секунды Stratz → M:SS (минута матча)."""
-    if seconds is None:
+def format_purchase_time(minutes: int | None) -> str:
+    """Минуты Stratz → M:ss (минута матча)."""
+    if minutes is None:
         return "—"
-    minutes, secs = divmod(int(seconds), 60)
-    return f"{minutes}:{secs:02d}"
+    m = int(minutes)
+    return f"{m}:00"
 
 
 def typical_purchase_time(
     rows: Sequence[Dict[str, Any]],
     item_id: int,
 ) -> int | None:
-    """Типичная секунда покупки: запись с макс. matchCount для этого itemId."""
+    """Типичная минута покупки: запись с макс. matchCount для этого itemId."""
     timed = [
         r
         for r in rows
         if int(r.get("itemId") or 0) == item_id and r.get("time") is not None
     ]
-    if not timed:
-        return None
-    best = max(timed, key=lambda r: int(r.get("matchCount") or 0))
-    return int(best.get("time") or 0)
+    if timed:
+        best = max(timed, key=lambda r: int(r.get("matchCount") or 0))
+        return int(best.get("time") or 0)
+    return None
 
 
 def build_endgame_sequence_from_purchase_rows(
@@ -133,6 +133,7 @@ def build_endgame_sequence_from_purchase_rows(
     if remaining > 0:
         append_top(rows, count=remaining)
 
+    sequence.sort(key=lambda x: x.get("time") or 0)
     return sequence[:limit]
 
 

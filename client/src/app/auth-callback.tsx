@@ -12,7 +12,7 @@ export default function AuthCallback() {
   useEffect(() => {
     if (token) {
       router.replace({
-        pathname: "stratz-token" as any,
+        pathname: "profile" as any,
         params: { token, steam_id: steam_id || "" },
       });
     }

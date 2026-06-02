@@ -34,11 +34,9 @@ type HeroBuilds = {
   skill_builds: Build[];
 };
 
-function formatTime(seconds: number | null): string {
-  if (!seconds) return "";
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  return `${m}:${String(s).padStart(2, "0")}`;
+function formatTime(minutes: number | null): string {
+  if (!minutes) return "";
+  return `${minutes} min`;
 }
 
 export default function HeroDetailScreen() {
@@ -129,8 +127,10 @@ const BuildCard = ({ build }: { build: Build }) => {
         {items.map((item, j) => (
           <View key={j} style={{ alignItems: "center", width: 52 }}>
             {item.image ? <Image source={{ uri: item.image }} style={{ width: 44, height: 44, borderRadius: 6 }} /> : <View style={{ width: 44, height: 44, borderRadius: 6, backgroundColor: "#1E293B" }} />}
-            {item.time != null && item.time > 0 && (
+            {item.time != null && item.time > 0 ? (
               <Text style={{ color: "#F59E0B", fontSize: 10, marginTop: 2 }}>{formatTime(item.time)}</Text>
+            ) : (
+              <Text style={{ color: "#64748B", fontSize: 10, marginTop: 2 }}>—</Text>
             )}
             <Text style={{ color: "#CBD5E1", fontSize: 9, textAlign: "center" }} numberOfLines={1}>{item.name}</Text>
           </View>
