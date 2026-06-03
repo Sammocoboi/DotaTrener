@@ -903,9 +903,7 @@ class StratzClient:
           player(steamAccountId: {steam_account_id}) {{
             steamAccountId
             winCount
-            matches(request: {{ take: 1 }}) {{
-              startDateTime
-            }}
+            matchCount
           }}
         }}"""
         data = self.graphql(query)
@@ -913,8 +911,10 @@ class StratzClient:
             return None
         player = data.get("player") or {}
         win = int(player.get("winCount") or 0)
-        player["loseCount"] = 0
-        player["winRate"] = 0
+        total = int(player.get("matchCount") or 0)
+        lose = total - win
+        player["loseCount"] = lose
+        player["winRate"] = round(win / total * 100, 1) if total else 0
         return player
 
     def fetch_player_rank(self, steam_account_id: int) -> Dict[str, Any]:
@@ -930,7 +930,7 @@ class StratzClient:
         data = self.graphql(query)
         if not data:
             return {"seasonRank": 0, "seasonLeaderboardRank": None}
-        sa = data.get("player", {}).get("steamAccount", {})
+        sa = data.get("player", {}).get("steamAccount") or {}
         return {
             "seasonRank": sa.get("seasonRank") or 0,
             "seasonLeaderboardRank": sa.get("seasonLeaderboardRank"),

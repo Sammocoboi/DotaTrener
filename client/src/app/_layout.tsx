@@ -1,6 +1,6 @@
-// app/_layout.tsx
 import { Stack } from 'expo-router';
+import { colors } from './theme';
 
 export default function Layout() {
-  return <Stack />;
+  return <Stack screenOptions={{ contentStyle: { backgroundColor: colors.bg } }} />;
 }

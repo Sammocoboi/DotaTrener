@@ -1,10 +1,15 @@
+import logging
+from typing import Any, Dict, List
+
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action, api_view, permission_classes as perm
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 
+logger = logging.getLogger(__name__)
+
 from django.utils import timezone
-from .models import Match, Review, Mistake, Hero, Player, Coach, CoachService, CoachApplication
+from .models import Match, Review, Mistake, Hero, Player, Coach, CoachService, CoachApplication, Conversation, Message
 from .serializers import (
     MatchSerializer, ReviewListSerializer, ReviewDetailSerializer, MistakeSerializer,
     CoachListSerializer, CoachDetailSerializer, CoachServiceSerializer,
@@ -289,16 +294,36 @@ def profile(request):
         if "stratz_token" in data:
             player.stratz_token = data["stratz_token"]
             player.save(update_fields=["stratz_token"])
+        if "avatar_url" in data:
+            player.avatar_url = data["avatar_url"]
+            player.save(update_fields=["avatar_url"])
+        if "username" in data and data["username"].strip():
+            request.user.username = data["username"].strip()
+            request.user.save(update_fields=["username"])
         if coach and "bio" in data:
             coach.bio = data["bio"]
             coach.save(update_fields=["bio"])
         if coach and "specialization" in data:
             coach.specialization = data["specialization"]
             coach.save(update_fields=["specialization"])
+        if coach and "social_links" in data and isinstance(data["social_links"], dict):
+            coach.social_links = data["social_links"]
+            coach.save(update_fields=["social_links"])
 
     from stratz_meta.services import StratzClient
     client = StratzClient(token=player.stratz_token if player.stratz_token else None)
     rank_data = client.fetch_player_rank(player.steam_account_id) if player.steam_account_id else {}
+
+    match_stats = None
+    if player.steam_account_id:
+        profile_data = client.fetch_player_profile(player.steam_account_id)
+        if profile_data:
+            match_stats = {
+                "win_count": int(profile_data.get("winCount") or 0),
+                "lose_count": int(profile_data.get("loseCount") or 0),
+                "match_count": int(profile_data.get("matchCount") or 0),
+                "win_rate": float(profile_data.get("winRate") or 0),
+            }
 
     return Response({
         "user": {
@@ -315,6 +340,7 @@ def profile(request):
             "peak_mmr": player.peak_mmr,
             "favorite_role": player.favorite_role,
             "is_coach": player.is_coach,
+            "avatar_url": player.avatar_url,
         },
         "coach": {
             "specialization": coach.specialization if coach else "",
@@ -322,6 +348,7 @@ def profile(request):
             "rating": coach.rating if coach else 0.0,
             "mmr_verified": coach.mmr_verified if coach else 0,
             "mmr_verified_at": coach.mmr_verified_at if coach else None,
+            "social_links": coach.social_links if coach else {},
         } if coach else None,
         "rank": {
             "season_rank": rank_data.get("seasonRank", 0),
@@ -329,6 +356,7 @@ def profile(request):
             "season_rank_label": _rank_label(rank_data.get("seasonRank", 0)),
             "is_immortal": (rank_data.get("seasonRank", 0) or 0) >= 80,
         } if rank_data else None,
+        "match_stats": match_stats,
     })
 
 
@@ -537,8 +565,13 @@ MATCH_DETAIL_QUERY = """{
     id
     didRadiantWin
     startDateTime
+    durationSeconds
     players {
       steamAccountId
+      steamAccount {
+        name
+        avatar
+      }
       heroId
       isRadiant
       kills
@@ -596,7 +629,7 @@ def match_detail(request, match_id):
         return Response({"error": "Матч не найден"}, status=404)
 
     all_players = api.get("players", [])
-    duration = 0
+    duration = api.get("durationSeconds", 0) or 0
 
     hero_ids = [p.get("heroId") for p in all_players if p.get("heroId")]
     hero_objs = Hero.objects.filter(steam_id__in=[int(h) for h in hero_ids if h])
@@ -674,10 +707,14 @@ def match_detail(request, match_id):
         talents.sort(key=lambda a: a.get("level") or 0)
 
         players.append({
+            "steam_account_id": p.get("steamAccountId"),
             "hero_id": hid,
             "hero_name": hero_obj.localized_name if hero_obj else f"Hero {hid}",
             "hero_image": hero_obj.image_url if hero_obj else "",
             "is_radiant": p.get("isRadiant", False),
+            "is_me": player.steam_account_id is not None and p.get("steamAccountId") == player.steam_account_id,
+            "nickname": (p.get("steamAccount") or {}).get("name") or "",
+            "avatar_url": (p.get("steamAccount") or {}).get("avatar") or "",
             "kills": p.get("kills", 0),
             "deaths": p.get("deaths", 0),
             "assists": p.get("assists", 0),
@@ -699,4 +736,182 @@ def match_detail(request, match_id):
         "radiant_win": api.get("didRadiantWin", False),
         "start_time": api.get("startDateTime", 0),
         "players": players,
+    })
+
+
+PLAYER_PROFILE_QUERY = """{
+  player(steamAccountId: %s) {
+    steamAccountId
+    winCount
+    matchCount
+    steamAccount {
+      name
+      avatar
+    }
+  }
+}"""
+
+
+@api_view(["GET"])
+def public_player_profile(request, steam_id):
+    """Публичный профиль игрока по steamAccountId"""
+    from stratz_meta.services import StratzClient
+    from stratz_meta.services.opendota_client import OpenDotaClient
+    client = StratzClient()
+    data = client.graphql(PLAYER_PROFILE_QUERY % steam_id)
+    if not data or not data.get("player"):
+        return Response({"error": "Игрок не найден"}, status=404)
+
+    p = data["player"]
+    sa = p.get("steamAccount") or {}
+
+    win_count = int(p.get("winCount") or 0)
+    match_count = int(p.get("matchCount") or 0)
+    lose_count = match_count - win_count
+    win_rate = round(win_count / match_count * 100, 1) if match_count else 0
+
+    rank_data = client.fetch_player_rank(steam_id)
+
+    # OpenDota — последние матчи и лучшие герои
+    recent_matches: List[Dict[str, Any]] = []
+    best_heroes: List[Dict[str, Any]] = []
+
+    try:
+        od = OpenDotaClient()
+
+        od_matches = od.fetch_player_recent_matches(int(steam_id))
+        for m in od_matches:
+            hero_id = m.get("hero_id")
+            hero = Hero.objects.filter(steam_id=int(hero_id)).first() if hero_id else None
+            player_slot = m.get("player_slot", 0)
+            is_radiant = player_slot < 128
+            won = is_radiant == m.get("radiant_win", False)
+
+            recent_matches.append({
+                "match_id": str(m.get("match_id", "")),
+                "won": won,
+                "is_radiant": is_radiant,
+                "hero_name": hero.localized_name if hero else f"Hero {hero_id}",
+                "hero_image": hero.image_url if hero else "",
+                "duration": int(m.get("duration") or 0),
+                "kills": int(m.get("kills") or 0),
+                "deaths": int(m.get("deaths") or 0),
+                "assists": int(m.get("assists") or 0),
+                "gpm": int(m.get("gold_per_min") or 0),
+                "xpm": int(m.get("xp_per_min") or 0),
+                "networth": 0,
+                "start_time": int(m.get("start_time") or 0),
+            })
+
+        od_heroes = od.fetch_player_heroes(int(steam_id))
+        for h in od_heroes[:10]:
+            hero_id = h.get("hero_id")
+            hero = Hero.objects.filter(steam_id=int(hero_id)).first() if hero_id else None
+            h_games = int(h.get("games") or 0)
+            h_wins = int(h.get("win") or 0)
+            best_heroes.append({
+                "hero_id": hero_id,
+                "hero_name": hero.localized_name if hero else f"Hero {hero_id}",
+                "hero_image": hero.image_url if hero else "",
+                "games": h_games,
+                "wins": h_wins,
+                "win_rate": round(h_wins / h_games * 100, 1) if h_games else 0,
+            })
+    except Exception:
+        logger.exception("OpenDota fetch failed for player %s", steam_id)
+
+    return Response({
+        "steam_account_id": p.get("steamAccountId"),
+        "nickname": sa.get("name") or "",
+        "avatar_url": sa.get("avatar") or "",
+        "season_rank": rank_data.get("seasonRank", 0),
+        "win_count": win_count,
+        "lose_count": lose_count,
+        "match_count": match_count,
+        "win_rate": win_rate,
+        "recent_matches": recent_matches,
+        "best_heroes": best_heroes,
+    })
+
+
+@api_view(["GET", "POST"])
+@perm([permissions.IsAuthenticated])
+def conversations_list(request):
+    """Список чатов / создать новый чат"""
+    if request.method == "POST":
+        coach_id = request.data.get("coach_id")
+        service_id = request.data.get("service_id")
+        first_message = request.data.get("message", "")
+
+        coach = get_object_or_404(Coach, id=coach_id)
+        service = None
+        if service_id:
+            service = get_object_or_404(CoachService, id=service_id, coach=coach)
+
+        if Conversation.objects.filter(user=request.user, coach=coach).exists():
+            conv = Conversation.objects.get(user=request.user, coach=coach)
+        else:
+            conv = Conversation.objects.create(user=request.user, coach=coach, service=service)
+
+        if first_message.strip():
+            Message.objects.create(conversation=conv, sender=request.user, text=first_message.strip())
+
+        return Response({"id": conv.id, "created_at": conv.created_at}, status=201)
+
+    qs = Conversation.objects.filter(
+        user=request.user
+    ) | Conversation.objects.filter(
+        coach__user=request.user
+    )
+    qs = qs.select_related("user", "coach__user", "service").prefetch_related("messages")
+    data = []
+    for c in qs.distinct():
+        last_msg = c.messages.order_by("-created_at").first()
+        unread_count = c.messages.filter(sender__is_staff=False).exclude(sender=request.user).count() if request.user.is_staff else 0
+        data.append({
+            "id": c.id,
+            "other_user": c.coach.user.username if c.coach.user != request.user else c.user.username,
+            "other_id": c.coach.id if c.coach.user != request.user else c.user.id,
+            "is_coach_side": c.coach.user == request.user,
+            "service_title": c.service.title if c.service else None,
+            "last_message": last_msg.text[:100] if last_msg else "",
+            "last_message_at": last_msg.created_at if last_msg else c.created_at,
+            "unread_count": unread_count,
+            "created_at": c.created_at,
+        })
+    return Response(data)
+
+
+@api_view(["GET", "POST"])
+@perm([permissions.IsAuthenticated])
+def conversation_detail(request, conv_id):
+    """Детали чата + сообщения / отправить сообщение"""
+    conv = get_object_or_404(Conversation, id=conv_id)
+    if conv.user != request.user and conv.coach.user != request.user:
+        return Response({"error": "Нет доступа"}, status=403)
+
+    if request.method == "POST":
+        text = request.data.get("text", "").strip()
+        if not text:
+            return Response({"error": "Текст сообщения обязателен"}, status=400)
+        msg = Message.objects.create(conversation=conv, sender=request.user, text=text)
+        return Response({
+            "id": msg.id,
+            "sender": msg.sender.username,
+            "text": msg.text,
+            "created_at": msg.created_at,
+        }, status=201)
+
+    msgs = conv.messages.select_related("sender").all()
+    return Response({
+        "id": conv.id,
+        "service_title": conv.service.title if conv.service else None,
+        "user": {"id": conv.user.id, "username": conv.user.username},
+        "coach": {"id": conv.coach.id, "username": conv.coach.user.username},
+        "messages": [{
+            "id": m.id,
+            "sender": m.sender.username,
+            "text": m.text,
+            "created_at": m.created_at,
+        } for m in msgs],
     })

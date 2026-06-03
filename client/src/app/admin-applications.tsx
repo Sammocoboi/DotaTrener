@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import { View, Text, ScrollView, Pressable } from "react-native";
-import { useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import axios from "axios";
+import { getToken } from "./token-storage";
+import { colors } from "./theme";
 
 const API = "http://127.0.0.1:8000/api/coaching";
 
@@ -15,7 +17,8 @@ type Application = {
 };
 
 export default function AdminApplications() {
-  const { token } = useLocalSearchParams<{ token: string }>();
+  const params = useLocalSearchParams<{ token: string }>();
+  const token = params.token || getToken();
   const headers = token ? { Authorization: `Token ${token}` } : {};
   const [apps, setApps] = useState<Application[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,41 +48,45 @@ export default function AdminApplications() {
   };
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: "#0B1120", padding: 16 }}>
-      <Text style={{ color: "#F1F5F9", fontSize: 20, fontWeight: "700", marginBottom: 16 }}>
+    <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: 16 }}>
+      <Pressable onPress={() => router.push("/")} style={{ marginBottom: 12 }}>
+        <Text style={{ color: colors.orange }}>← Назад</Text>
+      </Pressable>
+
+      <Text style={{ color: colors.text, fontSize: 20, fontWeight: "700", marginBottom: 16 }}>
         Заявки тренеров
       </Text>
 
       {loading ? (
-        <Text style={{ color: "#64748B" }}>Загрузка...</Text>
+        <Text style={{ color: colors.text60 }}>Загрузка...</Text>
       ) : apps.length === 0 ? (
-        <Text style={{ color: "#64748B" }}>Нет pending заявок</Text>
+        <Text style={{ color: colors.text60 }}>Нет pending заявок</Text>
       ) : (
         apps.map((app) => (
-          <View key={app.id} style={{ backgroundColor: "#1E293B", borderRadius: 8, padding: 12, marginBottom: 12 }}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 6 }}>
-              <Text style={{ color: "#60A5FA", fontWeight: "600", fontSize: 13 }}>{app.username}</Text>
-              <Text style={{ color: "#64748B", fontSize: 10 }}>{new Date(app.created_at).toLocaleString("ru")}</Text>
+          <View key={app.id} style={{ backgroundColor: colors.bgCard, borderRadius: 14, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: colors.borderSoft }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 8 }}>
+              <Text style={{ color: colors.orange, fontWeight: "600", fontSize: 13 }}>{app.username}</Text>
+              <Text style={{ color: colors.text40, fontSize: 10 }}>{new Date(app.created_at).toLocaleString("ru")}</Text>
             </View>
-            <View style={{ backgroundColor: "rgba(255,255,255,0.05)", borderRadius: 4, padding: 8, marginBottom: 10 }}>
-              <Text style={{ color: "#94A3B8", fontSize: 12, fontStyle: "italic" }}>"{app.message || "—"}"</Text>
+            <View style={{ backgroundColor: colors.bgRow, borderRadius: 8, padding: 10, marginBottom: 12 }}>
+              <Text style={{ color: colors.text60, fontSize: 12, fontStyle: "italic" }}>"{app.message || "—"}"</Text>
             </View>
             <View style={{ flexDirection: "row", gap: 8 }}>
               <Pressable
                 onPress={() => handleAction(app.id, "accept")}
                 disabled={actionLoading === app.id}
-                style={{ flex: 1, backgroundColor: "#059669", padding: 10, borderRadius: 6, alignItems: "center" }}
+                style={{ flex: 1, backgroundColor: colors.green, padding: 10, borderRadius: 6, alignItems: "center" }}
               >
-                <Text style={{ color: "#FFF", fontWeight: "600", fontSize: 12 }}>
+                <Text style={{ color: colors.text, fontWeight: "600", fontSize: 12 }}>
                   {actionLoading === app.id ? "..." : "Принять"}
                 </Text>
               </Pressable>
               <Pressable
                 onPress={() => handleAction(app.id, "reject")}
                 disabled={actionLoading === app.id}
-                style={{ flex: 1, backgroundColor: "#DC2626", padding: 10, borderRadius: 6, alignItems: "center" }}
+                style={{ flex: 1, backgroundColor: colors.red, padding: 10, borderRadius: 6, alignItems: "center" }}
               >
-                <Text style={{ color: "#FFF", fontWeight: "600", fontSize: 12 }}>
+                <Text style={{ color: colors.text, fontWeight: "600", fontSize: 12 }}>
                   {actionLoading === app.id ? "..." : "Отклонить"}
                 </Text>
               </Pressable>

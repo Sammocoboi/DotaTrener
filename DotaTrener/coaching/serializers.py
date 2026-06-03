@@ -66,12 +66,13 @@ class CoachServiceSerializer(serializers.ModelSerializer):
 
 class CoachListSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username', read_only=True)
+    avatar_url = serializers.CharField(source='user.player_profile.avatar_url', read_only=True, default='')
     service_count = serializers.SerializerMethodField()
     min_price = serializers.SerializerMethodField()
 
     class Meta:
         model = Coach
-        fields = ['id', 'username', 'title', 'specialization', 'bio', 'rating', 'mmr_verified', 'service_count', 'min_price']
+        fields = ['id', 'username', 'avatar_url', 'title', 'specialization', 'bio', 'rating', 'mmr_verified', 'service_count', 'min_price']
 
     def get_service_count(self, obj):
         return obj.services.filter(is_active=True).count()
@@ -83,8 +84,9 @@ class CoachListSerializer(serializers.ModelSerializer):
 
 class CoachDetailSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username', read_only=True)
+    avatar_url = serializers.CharField(source='user.player_profile.avatar_url', read_only=True, default='')
     services = CoachServiceSerializer(many=True, read_only=True)
 
     class Meta:
         model = Coach
-        fields = ['id', 'username', 'title', 'specialization', 'bio', 'rating', 'mmr_verified', 'services']
+        fields = ['id', 'username', 'avatar_url', 'title', 'specialization', 'bio', 'rating', 'mmr_verified', 'social_links', 'services']

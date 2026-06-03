@@ -62,6 +62,18 @@ class OpenDotaClient:
         stats = self.fetch_hero_stats()
         return {s["id"]: s for s in stats if "id" in s}
 
+    def fetch_player_recent_matches(self, account_id: int) -> List[Dict[str, Any]]:
+        data = self._get(f"/players/{account_id}/recentMatches", timeout=15)
+        return data if isinstance(data, list) else []
+
+    def fetch_player_heroes(self, account_id: int) -> List[Dict[str, Any]]:
+        data = self._get(f"/players/{account_id}/heroes", timeout=15)
+        if not isinstance(data, list):
+            return []
+        heroes = [h for h in data if (h.get("games") or 0) > 0]
+        heroes.sort(key=lambda h: h.get("games", 0), reverse=True)
+        return heroes
+
     def build_meta_for_hero(self, hero_stat: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         hero_id = hero_stat.get("id")
         if hero_id is None:

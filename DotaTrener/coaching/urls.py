@@ -13,6 +13,7 @@ urlpatterns = [
     path('my-matches/', views.fetch_my_matches, name='my-matches'),
     path('set-stratz-token/', views.set_stratz_token, name='set-stratz-token'),
     path('match/<str:match_id>/', views.match_detail, name='match-detail'),
+    path('player/<int:steam_id>/', views.public_player_profile, name='public-player-profile'),
     path('hero/<int:hero_id>/builds/', views.hero_builds, name='hero-builds'),
     path('profile/', views.profile, name='profile'),
     path('become-coach/', views.become_coach, name='become-coach'),
@@ -22,4 +23,6 @@ urlpatterns = [
     path('my-services/<int:service_id>/', views.my_service_detail, name='my-service-detail'),
     path('my-application/', views.my_application, name='my-application'),
     path('applications/', views.applications_list, name='applications-list'),
+    path('conversations/', views.conversations_list, name='conversations-list'),
+    path('conversations/<int:conv_id>/', views.conversation_detail, name='conversation-detail'),
 ]

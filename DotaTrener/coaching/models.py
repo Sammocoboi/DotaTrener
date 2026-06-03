@@ -23,6 +23,7 @@ class Player(models.Model):
     peak_mmr = models.IntegerField(default=0)
     favorite_role = models.CharField(max_length=50, blank=True, null=True)
     is_coach = models.BooleanField(default=False, help_text="Зарегистрирован как тренер")
+    avatar_url = models.URLField(max_length=500, blank=True, default="", help_text="URL аватарки")
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -42,6 +43,7 @@ class Coach(models.Model):
     rating = models.FloatField(default=0.0, validators=[MinValueValidator(0.0), MaxValueValidator(5.0)])
     mmr_verified = models.IntegerField(default=0, help_text="MMR на момент верификации тренера")
     mmr_verified_at = models.DateTimeField(null=True, blank=True, help_text="Дата последней верификации MMR")
+    social_links = models.JSONField(default=dict, blank=True, help_text="Соцсети: {\"telegram\": \"...\", \"discord\": \"...\"}")
     created_at = models.DateTimeField(auto_now_add=True)
 
     def is_eligible(self) -> bool:
@@ -61,16 +63,49 @@ class CoachService(models.Model):
     title = models.CharField(max_length=200, help_text="Название услуги")
     description = models.TextField(blank=True, help_text="Описание")
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Цена в USD/RUB")
-    duration_minutes = models.PositiveIntegerField(default=60, help_text="Длительность в минутах")
+    duration_minutes = models.IntegerField(default=60, help_text="Длительность в минутах")
     is_active = models.BooleanField(default=True, help_text="Активна ли услуга")
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.title} ({self.coach.user.username})"
+        return f"{self.title} (${self.price})"
 
     class Meta:
         verbose_name = "Услуга тренера"
         verbose_name_plural = "Услуги тренеров"
+
+
+class Conversation(models.Model):
+    """Чат между пользователем и тренером"""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="conversations_as_user")
+    coach = models.ForeignKey(Coach, on_delete=models.CASCADE, related_name="conversations")
+    service = models.ForeignKey(CoachService, on_delete=models.SET_NULL, null=True, blank=True, help_text="Услуга, с которой начался разговор")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-updated_at"]
+        verbose_name = "Чат"
+        verbose_name_plural = "Чаты"
+
+    def __str__(self):
+        return f"{self.user.username} - {self.coach.user.username}"
+
+
+class Message(models.Model):
+    """Сообщение в чате"""
+    conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, related_name="messages")
+    sender = models.ForeignKey(User, on_delete=models.CASCADE)
+    text = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["created_at"]
+        verbose_name = "Сообщение"
+        verbose_name_plural = "Сообщения"
+
+    def __str__(self):
+        return f"{self.sender.username}: {self.text[:50]}"
 
 
 class CoachApplication(models.Model):

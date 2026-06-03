@@ -1,25 +1,29 @@
 import { useEffect, useState } from "react";
-import { View, Text, ScrollView, Pressable, TextInput, Alert } from "react-native";
+import { View, Text, ScrollView, Pressable, TextInput } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import axios from "axios";
+import { getToken } from "./token-storage";
+import { colors } from "./theme";
 
 const API = "http://127.0.0.1:8000/api/coaching";
 
 type Service = { id: number; title: string; description: string; price: string; duration_minutes: number; is_active: boolean };
 
 export default function MyServicesScreen() {
-  const { token } = useLocalSearchParams<{ token: string }>();
+  const params = useLocalSearchParams<{ token: string }>();
+  const token = params.token || getToken();
   const headers = { Authorization: `Token ${token}` };
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Partial<Service> | null>(null);
   const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState("");
 
   const load = () => {
     setLoading(true);
     axios.get(`${API}/my-services/`, { headers })
       .then(r => setServices(r.data))
-      .catch(() => Alert.alert("Ошибка", "Не удалось загрузить услуги"))
+      .catch(() => setErr("Не удалось загрузить услуги"))
       .finally(() => setLoading(false));
   };
 
@@ -43,50 +47,46 @@ export default function MyServicesScreen() {
       }
       setEditing(null);
       load();
-    } catch { Alert.alert("Ошибка"); }
+    } catch { setErr("Ошибка"); }
     finally { setSaving(false); }
   };
 
   const deleteService = (id: number) => {
-    Alert.alert("Удалить?", "", [
-      { text: "Отмена" },
-      { text: "Удалить", style: "destructive", onPress: () => {
-        axios.delete(`${API}/my-services/${id}/`, { headers }).then(load);
-      }},
-    ]);
+    axios.delete(`${API}/my-services/${id}/`, { headers }).then(load);
   };
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: "#0B1120" }} contentContainerStyle={{ padding: 16 }}>
-      <Pressable onPress={() => router.push({ pathname: "profile" as any, params: { token } })} style={{ marginBottom: 12 }}>
-        <Text style={{ color: "#60A5FA" }}>← Профиль</Text>
+    <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: 16 }}>
+      <Pressable onPress={() => router.push("/")} style={{ marginBottom: 12 }}>
+        <Text style={{ color: colors.orange }}>← Назад</Text>
       </Pressable>
 
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <Text style={{ color: "#FFF", fontSize: 20, fontWeight: "700" }}>Мои услуги</Text>
-        <Pressable onPress={() => setEditing({ is_active: true, duration_minutes: 60 })} style={{ backgroundColor: "#3B82F6", padding: 8, borderRadius: 6 }}>
-          <Text style={{ color: "#FFF", fontSize: 12, fontWeight: "600" }}>+ Добавить</Text>
+        <Text style={{ color: colors.text, fontSize: 20, fontWeight: "700" }}>Мои услуги</Text>
+        <Pressable onPress={() => setEditing({ is_active: true, duration_minutes: 60 })} style={{ backgroundColor: colors.orange, padding: 8, borderRadius: 6 }}>
+          <Text style={{ color: colors.text, fontSize: 12, fontWeight: "600" }}>+ Добавить</Text>
         </Pressable>
       </View>
 
-      {loading && <Text style={{ color: "#64748B" }}>Загрузка...</Text>}
+      {err ? <Text style={{ color: colors.red, fontSize: 12, marginBottom: 8 }}>{err}</Text> : null}
+      {loading && <Text style={{ color: colors.text60 }}>Загрузка...</Text>}
 
-      {!loading && services.length === 0 && <Text style={{ color: "#64748B" }}>Нет услуг. Нажми "+ Добавить" чтобы создать.</Text>}
+      {!loading && services.length === 0 && <Text style={{ color: colors.text60 }}>Нет услуг. Нажми "+ Добавить" чтобы создать.</Text>}
 
       {services.map(s => (
-        <View key={s.id} style={{ backgroundColor: "#0F1729", borderRadius: 8, padding: 12, marginBottom: 8 }}>
+        <View key={s.id} style={{ backgroundColor: colors.bgCard, borderRadius: 14, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: colors.borderSoft }}>
           <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
             <View style={{ flex: 1 }}>
-              <Text style={{ color: "#FFF", fontSize: 14, fontWeight: "600" }}>{s.title}</Text>
-              <Text style={{ color: "#A5B4FC", fontSize: 13, fontWeight: "700", marginTop: 2 }}>{"$"}{s.price}</Text>
-              <Text style={{ color: "#64748B", fontSize: 11, marginTop: 2 }}>{s.duration_minutes} мин · {s.is_active ? "Активна" : "Неактивна"}</Text>
+              <Text style={{ color: colors.text, fontSize: 14, fontWeight: "600" }}>{s.title}</Text>
+              <Text style={{ color: colors.purpleLight, fontSize: 13, fontWeight: "700", marginTop: 2 }}>{"$"}{s.price}</Text>
+              <Text style={{ color: colors.text40, fontSize: 11, marginTop: 2 }}>{s.duration_minutes} мин · {s.is_active ? "Активна" : "Неактивна"}</Text>
             </View>
             <View style={{ gap: 4 }}>
-              <Pressable onPress={() => setEditing(s)} style={{ backgroundColor: "#1E293B", padding: 6, borderRadius: 4 }}>
-                <Text style={{ color: "#60A5FA", fontSize: 11 }}>Изменить</Text>
+              <Pressable onPress={() => setEditing(s)} style={{ backgroundColor: colors.bgElevated, padding: 6, borderRadius: 4 }}>
+                <Text style={{ color: colors.orange, fontSize: 11 }}>Изменить</Text>
               </Pressable>
-              <Pressable onPress={() => deleteService(s.id)} style={{ backgroundColor: "#1E293B", padding: 6, borderRadius: 4 }}>
-                <Text style={{ color: "#EF4444", fontSize: 11 }}>Удалить</Text>
+              <Pressable onPress={() => deleteService(s.id)} style={{ backgroundColor: colors.bgElevated, padding: 6, borderRadius: 4 }}>
+                <Text style={{ color: colors.red, fontSize: 11 }}>Удалить</Text>
               </Pressable>
             </View>
           </View>
@@ -94,32 +94,32 @@ export default function MyServicesScreen() {
       ))}
 
       {editing && (
-        <View style={{ backgroundColor: "#131B31", borderRadius: 10, padding: 14, marginTop: 8 }}>
-          <Text style={{ color: "#FFF", fontSize: 14, fontWeight: "600", marginBottom: 8 }}>{editing.id ? "Редактировать" : "Новая услуга"}</Text>
+        <View style={{ backgroundColor: colors.bgCard, borderRadius: 14, padding: 16, marginTop: 8, borderWidth: 1, borderColor: colors.borderSoft }}>
+          <Text style={{ color: colors.text, fontSize: 14, fontWeight: "600", marginBottom: 8 }}>{editing.id ? "Редактировать" : "Новая услуга"}</Text>
 
-          <Text style={label}>Название</Text>
-          <TextInput style={input} value={editing.title || ""} onChangeText={t => setEditing({ ...editing, title: t })} placeholder="Напр. Разбор матча" placeholderTextColor="#475569" />
+          <Text style={labelStyle}>Название</Text>
+          <TextInput style={inputStyle} value={editing.title || ""} onChangeText={t => setEditing({ ...editing, title: t })} placeholder="Напр. Разбор матча" placeholderTextColor={colors.text40} />
 
-          <Text style={label}>Описание</Text>
-          <TextInput style={[input, { height: 60 }]} value={editing.description || ""} onChangeText={t => setEditing({ ...editing, description: t })} multiline placeholderTextColor="#475569" />
+          <Text style={labelStyle}>Описание</Text>
+          <TextInput style={[inputStyle, { height: 60 }]} value={editing.description || ""} onChangeText={t => setEditing({ ...editing, description: t })} multiline placeholderTextColor={colors.text40} />
 
           <View style={{ flexDirection: "row", gap: 8 }}>
             <View style={{ flex: 1 }}>
-              <Text style={label}>Цена ($)</Text>
-              <TextInput style={input} value={editing.price || ""} onChangeText={t => setEditing({ ...editing, price: t })} keyboardType="decimal-pad" placeholderTextColor="#475569" />
+              <Text style={labelStyle}>Цена ($)</Text>
+              <TextInput style={inputStyle} value={editing.price || ""} onChangeText={t => setEditing({ ...editing, price: t })} keyboardType="decimal-pad" placeholderTextColor={colors.text40} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={label}>Длительность (мин)</Text>
-              <TextInput style={input} value={String(editing.duration_minutes || "")} onChangeText={t => setEditing({ ...editing, duration_minutes: parseInt(t) || 0 })} keyboardType="number-pad" placeholderTextColor="#475569" />
+              <Text style={labelStyle}>Длительность (мин)</Text>
+              <TextInput style={inputStyle} value={String(editing.duration_minutes || "")} onChangeText={t => setEditing({ ...editing, duration_minutes: parseInt(t) || 0 })} keyboardType="number-pad" placeholderTextColor={colors.text40} />
             </View>
           </View>
 
           <View style={{ flexDirection: "row", gap: 8, marginTop: 12 }}>
-            <Pressable onPress={() => setEditing(null)} style={{ flex: 1, backgroundColor: "#1E293B", padding: 10, borderRadius: 6, alignItems: "center" }}>
-              <Text style={{ color: "#94A3B8", fontSize: 12 }}>Отмена</Text>
+            <Pressable onPress={() => setEditing(null)} style={{ flex: 1, backgroundColor: colors.bgElevated, padding: 10, borderRadius: 6, alignItems: "center" }}>
+              <Text style={{ color: colors.text60, fontSize: 12 }}>Отмена</Text>
             </Pressable>
-            <Pressable onPress={saveService} disabled={saving} style={{ flex: 1, backgroundColor: "#3B82F6", padding: 10, borderRadius: 6, alignItems: "center" }}>
-              <Text style={{ color: "#FFF", fontSize: 12, fontWeight: "600" }}>{saving ? "Сохранение..." : "Сохранить"}</Text>
+            <Pressable onPress={saveService} disabled={saving} style={{ flex: 1, backgroundColor: colors.orange, padding: 10, borderRadius: 6, alignItems: "center" }}>
+              <Text style={{ color: colors.text, fontSize: 12, fontWeight: "600" }}>{saving ? "Сохранение..." : "Сохранить"}</Text>
             </Pressable>
           </View>
         </View>
@@ -128,5 +128,5 @@ export default function MyServicesScreen() {
   );
 }
 
-const label: any = { color: "#94A3B8", fontSize: 11, marginBottom: 2, marginTop: 6 };
-const input: any = { backgroundColor: "#1E293B", color: "#CBD5E1", fontSize: 12, padding: 8, borderRadius: 6, borderWidth: 1, borderColor: "rgba(255,255,255,0.08)" };
+const labelStyle = { color: colors.text60, fontSize: 11, marginBottom: 2, marginTop: 6 };
+const inputStyle = { backgroundColor: colors.bgRow, color: colors.text, fontSize: 12, padding: 8, borderRadius: 6, borderWidth: 1, borderColor: colors.border };
