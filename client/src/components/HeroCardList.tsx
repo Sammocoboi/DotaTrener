@@ -3,9 +3,7 @@ import { Hero } from "@/types/hero";
 import { useEffect, useState } from "react";
 import { FlatList, Text, View, ActivityIndicator, StyleSheet } from "react-native";
 import HeroCard from "./HeroCard";
-
-
-const API_URL_HEROES = "http://localhost:8000/api/coaching/heroes/";
+import { API_HEROES as API_URL_HEROES } from "@/lib/api";
 
 const HeroList = () => {
     const [heroes, setHeroes] = useState<Hero[]>([]);

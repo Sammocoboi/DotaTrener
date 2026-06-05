@@ -3,9 +3,8 @@ import { View, Text, FlatList, StyleSheet } from "react-native";
 import { router } from "expo-router";
 import axios from "axios";
 import { HeroMeta } from "@/types/herometa";
+import { API_STRATZ_META as API_URL } from "@/lib/api";
 import HeroMetaCard from "./HeroMetaCard";
-
-const API_URL = "http://127.0.0.1:8000/api/stratz/hero-meta/";
 
 type Props = {
   searchQuery: string;

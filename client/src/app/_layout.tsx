@@ -1,6 +1,0 @@
-import { Stack } from 'expo-router';
-import { colors } from './theme';
-
-export default function Layout() {
-  return <Stack screenOptions={{ contentStyle: { backgroundColor: colors.bg } }} />;
-}
