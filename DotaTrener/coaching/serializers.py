@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Hero, Match, Review, Mistake, MistakeCategory, Coach, CoachService
+from .models import Hero, Match, Review, Mistake, MistakeCategory, Coach, CoachService, CoachReview, CoachVideo
 
 
 class HeroSerializer(serializers.ModelSerializer):
@@ -57,10 +57,29 @@ class ReviewDetailSerializer(serializers.ModelSerializer):
         ]
 
 
+class CoachVideoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CoachVideo
+        fields = ['id', 'title', 'description', 'file_url', 'thumbnail_url', 'duration_seconds', 'price', 'view_count', 'is_active', 'created_at']
+        read_only_fields = ['id', 'view_count', 'created_at']
+
+
+class CoachReviewSerializer(serializers.ModelSerializer):
+    reviewer_username = serializers.CharField(source='reviewer.username', read_only=True)
+
+    class Meta:
+        model = CoachReview
+        fields = ['id', 'coach', 'reviewer', 'reviewer_username', 'rating', 'text', 'created_at']
+        read_only_fields = ['id', 'reviewer', 'created_at']
+
+
 class CoachServiceSerializer(serializers.ModelSerializer):
+    video_title = serializers.CharField(source='video.title', read_only=True, default=None)
+    video_url = serializers.CharField(source='video.file_url', read_only=True, default=None)
+
     class Meta:
         model = CoachService
-        fields = ['id', 'title', 'description', 'price', 'duration_minutes', 'is_active', 'created_at']
+        fields = ['id', 'title', 'description', 'price', 'duration_minutes', 'video', 'video_title', 'video_url', 'is_active', 'created_at']
         read_only_fields = ['id', 'created_at']
 
 
@@ -86,7 +105,19 @@ class CoachDetailSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username', read_only=True)
     avatar_url = serializers.CharField(source='user.player_profile.avatar_url', read_only=True, default='')
     services = CoachServiceSerializer(many=True, read_only=True)
+    videos = CoachVideoSerializer(many=True, read_only=True)
+    coach_reviews = CoachReviewSerializer(many=True, read_only=True)
+    review_count = serializers.SerializerMethodField()
+    avg_rating = serializers.SerializerMethodField()
 
     class Meta:
         model = Coach
-        fields = ['id', 'username', 'avatar_url', 'title', 'specialization', 'bio', 'rating', 'mmr_verified', 'social_links', 'services']
+        fields = ['id', 'username', 'avatar_url', 'title', 'specialization', 'bio', 'rating', 'mmr_verified', 'social_links', 'services', 'videos', 'coach_reviews', 'review_count', 'avg_rating']
+
+    def get_review_count(self, obj):
+        return obj.coach_reviews.count()
+
+    def get_avg_rating(self, obj):
+        from django.db.models import Avg
+        result = obj.coach_reviews.aggregate(avg=Avg('rating'))
+        return round(result['avg'], 1) if result['avg'] else None

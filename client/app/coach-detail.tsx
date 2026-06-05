@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { View, Text, ScrollView, Pressable, TextInput, Image, Linking } from "react-native";
+import { View, Text, ScrollView, Pressable, TextInput, Image, Linking, Platform } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import axios from "axios";
 import { getToken } from "@/lib/token-storage";
@@ -14,7 +14,29 @@ type Service = {
   description: string;
   price: string;
   duration_minutes: number;
+  video_title: string | null;
+  video_url: string | null;
   is_active: boolean;
+};
+
+type Video = {
+  id: number;
+  title: string;
+  description: string;
+  file_url: string;
+  thumbnail_url: string;
+  duration_seconds: number;
+  price: string;
+  view_count: number;
+  is_active: boolean;
+};
+
+type Review = {
+  id: number;
+  reviewer_username: string;
+  rating: number;
+  text: string;
+  created_at: string;
 };
 
 type CoachDetail = {
@@ -28,6 +50,10 @@ type CoachDetail = {
   mmr_verified: number;
   social_links: Record<string, string>;
   services: Service[];
+  videos: Video[];
+  coach_reviews: Review[];
+  review_count: number;
+  avg_rating: number | null;
 };
 
 export default function CoachDetailScreen() {
@@ -36,6 +62,10 @@ export default function CoachDetailScreen() {
   const token = params.token || getToken();
   const [coach, setCoach] = useState<CoachDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewText, setReviewText] = useState("");
+  const [reviewSending, setReviewSending] = useState(false);
+  const [reviewMsg, setReviewMsg] = useState("");
   const headers = token ? { Authorization: `Token ${token}` } : {};
 
   const load = () => {
@@ -48,6 +78,21 @@ export default function CoachDetailScreen() {
   };
 
   useEffect(() => { load(); }, [coach_id]);
+
+  const submitReview = async () => {
+    if (!coach_id || !token) return;
+    setReviewSending(true);
+    setReviewMsg("");
+    try {
+      await axios.post(`${API}/coaches/${coach_id}/reviews/`, { rating: reviewRating, text: reviewText }, { headers });
+      setReviewMsg("Отзыв отправлен!");
+      setReviewText("");
+      setReviewRating(5);
+      load();
+    } catch (e: any) {
+      setReviewMsg(e?.response?.data?.error || "Ошибка");
+    } finally { setReviewSending(false); }
+  };
 
   const openLink = (url: string) => {
     const fullUrl = url.startsWith("http") ? url : `https://${url}`;
@@ -118,6 +163,12 @@ export default function CoachDetailScreen() {
             </View>
           </View>
           <Text style={{ color: colors.text60, fontSize: 11, marginTop: 4 }}>{svc.description}</Text>
+          {svc.video_title && (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 6, backgroundColor: colors.bgElevated, padding: 6, borderRadius: 4 }}>
+              <Text style={{ color: colors.orange, fontSize: 10 }}>VIDEO</Text>
+              <Text style={{ color: colors.text60, fontSize: 10 }}>{svc.video_title}</Text>
+            </View>
+          )}
           <Pressable
             onPress={() => {
               axios.post(`${API}/conversations/`, { coach_id: coach.id, service_id: svc.id, message: "Здравствуйте! Хочу записаться на эту услугу." }, { headers })
@@ -130,6 +181,89 @@ export default function CoachDetailScreen() {
           </Pressable>
         </View>
       ))}
+
+      {coach.videos.length > 0 && (
+        <>
+          <Text style={{ color: colors.text60, fontSize: 11, fontWeight: "600", letterSpacing: 1, marginBottom: 10, marginTop: 8 }}>ВИДЕО</Text>
+          {coach.videos.map(vid => (
+            <View key={vid.id} style={{ backgroundColor: colors.bgCard, borderRadius: 14, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: colors.borderSoft }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                <Text style={{ color: colors.text, fontSize: 14, fontWeight: "600", flex: 1 }}>{vid.title}</Text>
+                {Number(vid.price) > 0 ? (
+                  <Text style={{ color: colors.purpleLight, fontSize: 14, fontWeight: "700" }}>{"$"}{vid.price}</Text>
+                ) : (
+                  <Text style={{ color: colors.greenLight, fontSize: 11 }}>Бесплатно</Text>
+                )}
+              </View>
+              <Text style={{ color: colors.text60, fontSize: 11, marginTop: 4 }} numberOfLines={2}>{vid.description}</Text>
+              <View style={{ flexDirection: "row", gap: 12, marginTop: 6 }}>
+                <Text style={{ color: colors.text40, fontSize: 10 }}>{Math.floor(vid.duration_seconds / 60)} мин</Text>
+                <Text style={{ color: colors.text40, fontSize: 10 }}>{vid.view_count} просмотров</Text>
+              </View>
+              {(Platform.OS === "web" && typeof document !== "undefined") ? (
+                <div style={{ marginTop: 8, borderRadius: 8, overflow: "hidden" }}>
+                  <video
+                    src={vid.file_url}
+                    controls
+                    preload="metadata"
+                    style={{ width: "100%", maxHeight: 360, borderRadius: 8, backgroundColor: "#000" }}
+                  />
+                </div>
+              ) : (
+                <Pressable
+                  onPress={() => { if (typeof window !== "undefined") window.open(vid.file_url, "_blank"); }}
+                  style={{ backgroundColor: colors.bgElevated, padding: 8, borderRadius: 6, marginTop: 8, alignItems: "center" }}
+                >
+                  <Text style={{ color: colors.orange, fontSize: 11, fontWeight: "600" }}>Смотреть</Text>
+                </Pressable>
+              )}
+            </View>
+          ))}
+        </>
+      )}
+
+      {coach.coach_reviews.length > 0 && (
+        <>
+          <Text style={{ color: colors.text60, fontSize: 11, fontWeight: "600", letterSpacing: 1, marginBottom: 10, marginTop: 8 }}>
+            ОТЗЫВЫ ({coach.review_count}) {coach.avg_rating != null && `★ ${coach.avg_rating}`}
+          </Text>
+          {coach.coach_reviews.map(rev => (
+            <View key={rev.id} style={{ backgroundColor: colors.bgCard, borderRadius: 14, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: colors.borderSoft }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                <Text style={{ color: colors.text, fontSize: 12, fontWeight: "600" }}>{rev.reviewer_username}</Text>
+                <Text style={{ color: colors.orange, fontSize: 12 }}>{"★".repeat(rev.rating)}{"☆".repeat(5 - rev.rating)}</Text>
+              </View>
+              <Text style={{ color: colors.text80, fontSize: 12, marginTop: 6 }}>{rev.text}</Text>
+              <Text style={{ color: colors.text40, fontSize: 10, marginTop: 6 }}>{new Date(rev.created_at).toLocaleDateString("ru-RU")}</Text>
+            </View>
+          ))}
+
+          {token && (
+            <View style={{ backgroundColor: colors.bgCard, borderRadius: 14, padding: 16, marginTop: 8, borderWidth: 1, borderColor: colors.borderSoft }}>
+              <Text style={{ color: colors.text, fontSize: 13, fontWeight: "600", marginBottom: 8 }}>Оставить отзыв</Text>
+              <View style={{ flexDirection: "row", gap: 4, marginBottom: 8 }}>
+                {[1,2,3,4,5].map(n => (
+                  <Pressable key={n} onPress={() => setReviewRating(n)}>
+                    <Text style={{ color: n <= reviewRating ? colors.orange : colors.text40, fontSize: 20 }}>{n <= reviewRating ? "★" : "☆"}</Text>
+                  </Pressable>
+                ))}
+              </View>
+              <TextInput
+                style={{ backgroundColor: colors.bgRow, color: colors.text, fontSize: 12, padding: 8, borderRadius: 6, borderWidth: 1, borderColor: colors.border, minHeight: 60 }}
+                value={reviewText}
+                onChangeText={setReviewText}
+                multiline
+                placeholder="Ваш отзыв..."
+                placeholderTextColor={colors.text40}
+              />
+              {reviewMsg ? <Text style={{ color: reviewMsg.includes("ошибк") || reviewMsg.includes("Ошибка") ? colors.red : colors.greenLight, fontSize: 11, marginTop: 4 }}>{reviewMsg}</Text> : null}
+              <Pressable onPress={submitReview} disabled={reviewSending || !reviewText.trim()} style={{ backgroundColor: reviewText.trim() ? colors.orange : colors.bgElevated, padding: 8, borderRadius: 6, marginTop: 8, alignItems: "center" }}>
+                <Text style={{ color: reviewText.trim() ? colors.text : colors.text40, fontSize: 12, fontWeight: "600" }}>{reviewSending ? "..." : "Отправить"}</Text>
+              </Pressable>
+            </View>
+          )}
+        </>
+      )}
     </ScrollView>
   );
 }

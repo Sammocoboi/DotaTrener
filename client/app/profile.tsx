@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { View, Text, ScrollView, Pressable, TextInput, Image } from "react-native";
+import { useEffect, useState, useRef } from "react";
+import { View, Text, ScrollView, Pressable, TextInput, Image, Platform, Modal } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import axios from "axios";
 import { getToken } from "@/lib/token-storage";
@@ -35,6 +35,8 @@ type ProfileData = {
   } | null;
 };
 
+const CROP_SIZE = 256;
+
 export default function ProfileScreen() {
   const params = useLocalSearchParams<{ token: string }>();
   const token = params.token || getToken();
@@ -45,13 +47,75 @@ export default function ProfileScreen() {
   const [appStatus, setAppStatus] = useState<{ id: number; status: string; message: string; created_at: string; reviewed_at?: string } | null>(null);
   const [appMessage, setAppMessage] = useState("");
   const [editName, setEditName] = useState("");
-  const [editAvatar, setEditAvatar] = useState("");
   const [socialLinks, setSocialLinks] = useState<Record<string, string>>({});
   const [newSocialKey, setNewSocialKey] = useState("");
   const [newSocialVal, setNewSocialVal] = useState("");
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const [cropVisible, setCropVisible] = useState(false);
+  const [cropImage, setCropImage] = useState<string | null>(null);
+  const cropImgRef = useRef<HTMLImageElement | null>(null);
+  const cropDragRef = useRef({ dragging: false, startX: 0, startY: 0, imgStartX: 0, imgStartY: 0 });
+  const cropOffsetRef = useRef({ x: 0, y: 0 });
+  const cropImgRenderedRef = useRef({ w: 0, h: 0 });
 
   const headers = token ? { Authorization: `Token ${token}` } : {};
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    setCropImage(url);
+    cropOffsetRef.current = { x: 0, y: 0 };
+    setCropVisible(true);
+  };
+
+  const handleCropConfirm = async () => {
+    if (!cropImage || !token) return;
+    const off = cropOffsetRef.current;
+    setCropVisible(false);
+    setUploading(true);
+    try {
+      const img = new window.Image();
+      img.crossOrigin = "anonymous";
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = reject;
+        img.src = cropImage;
+      });
+
+      const scale = Math.max(CROP_SIZE / img.naturalWidth, CROP_SIZE / img.naturalHeight);
+      const sw = CROP_SIZE / scale;
+      const sh = CROP_SIZE / scale;
+      const sx = (img.naturalWidth - sw) / 2 - off.x / scale;
+      const sy = (img.naturalHeight - sh) / 2 - off.y / scale;
+
+      const canvas = document.createElement("canvas");
+      canvas.width = CROP_SIZE;
+      canvas.height = CROP_SIZE;
+      const ctx = canvas.getContext("2d")!;
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, CROP_SIZE, CROP_SIZE);
+
+      const blob = await new Promise<Blob>((resolve) => canvas.toBlob((b) => resolve(b!), "image/jpeg", 0.9));
+      const file = new File([blob], "avatar.jpg", { type: "image/jpeg" });
+
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await axios.post(`${API}/upload-avatar/`, formData, {
+        headers: { Authorization: `Token ${token}`, "Content-Type": "multipart/form-data" },
+      });
+      setProfile((prev) => prev ? { ...prev, player: { ...prev.player, avatar_url: res.data.url } } : prev);
+      URL.revokeObjectURL(cropImage);
+    } catch (err: any) {
+      setError(err?.response?.data?.error || "Ошибка загрузки");
+    } finally {
+      setUploading(false);
+      setCropImage(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   const loadAll = () => {
     if (!token) return;
@@ -63,7 +127,6 @@ export default function ProfileScreen() {
       .then(([pRes, aRes]) => {
         setProfile(pRes.data);
         setEditName(pRes.data.user.username);
-        setEditAvatar(pRes.data.player.avatar_url || "");
         setSocialLinks(pRes.data.coach?.social_links || {});
         setAppStatus(aRes.data?.application || null);
       })
@@ -72,6 +135,34 @@ export default function ProfileScreen() {
   };
 
   useEffect(() => { loadAll(); }, [token]);
+
+  useEffect(() => {
+    if (!cropVisible) return;
+    const onMove = (e: MouseEvent) => {
+      const d = cropDragRef.current;
+      if (!d.dragging) return;
+      const dx = e.clientX - d.startX;
+      const dy = e.clientY - d.startY;
+      const rw = cropImgRenderedRef.current.w;
+      const rh = cropImgRenderedRef.current.h;
+      const maxOffset = Math.max(0, (rw - CROP_SIZE) / 2);
+      const maxOffsetY = Math.max(0, (rh - CROP_SIZE) / 2);
+      const nx = Math.max(-maxOffset, Math.min(maxOffset, d.imgStartX + dx));
+      const ny = Math.max(-maxOffsetY, Math.min(maxOffsetY, d.imgStartY + dy));
+      cropOffsetRef.current = { x: nx, y: ny };
+      const el = cropImgRef.current;
+      if (el) {
+        el.style.transform = `translate(calc(-50% + ${nx}px), calc(-50% + ${ny}px))`;
+      }
+    };
+    const onUp = () => { cropDragRef.current.dragging = false; };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+    return () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+  }, [cropVisible]);
 
   const handleBecomeCoach = async () => {
     setRegistering(true);
@@ -91,7 +182,7 @@ export default function ProfileScreen() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await axios.patch(`${API}/profile/`, { username: editName, avatar_url: editAvatar, social_links: socialLinks }, { headers });
+      await axios.patch(`${API}/profile/`, { username: editName, social_links: socialLinks }, { headers });
       const res = await axios.get(`${API}/profile/`, { headers });
       setProfile(res.data);
       setSocialLinks(res.data.coach?.social_links || {});
@@ -102,15 +193,32 @@ export default function ProfileScreen() {
     }
   };
 
-  const addSocialLink = () => {
+  const addSocialLink = async () => {
     if (!newSocialKey.trim() || !newSocialVal.trim()) return;
-    setSocialLinks(prev => ({ ...prev, [newSocialKey.trim()]: newSocialVal.trim() }));
+    const updated = { ...socialLinks, [newSocialKey.trim()]: newSocialVal.trim() };
+    setSocialLinks(updated);
     setNewSocialKey("");
     setNewSocialVal("");
+    try {
+      await axios.patch(`${API}/profile/`, { social_links: updated }, { headers });
+      const res = await axios.get(`${API}/profile/`, { headers });
+      setSocialLinks(res.data.coach?.social_links || {});
+    } catch (e: any) {
+      setError(e?.response?.data?.error || "Ошибка сохранения соцсетей");
+    }
   };
 
-  const removeSocialLink = (key: string) => {
-    setSocialLinks(prev => { const n = { ...prev }; delete n[key]; return n; });
+  const removeSocialLink = async (key: string) => {
+    const updated = { ...socialLinks };
+    delete updated[key];
+    setSocialLinks(updated);
+    try {
+      await axios.patch(`${API}/profile/`, { social_links: updated }, { headers });
+      const res = await axios.get(`${API}/profile/`, { headers });
+      setSocialLinks(res.data.coach?.social_links || {});
+    } catch (e: any) {
+      setError(e?.response?.data?.error || "Ошибка сохранения соцсетей");
+    }
   };
 
   if (loading) return <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colors.bg }}><Text style={{ color: colors.text60 }}>Загрузка...</Text></View>;
@@ -139,12 +247,23 @@ export default function ProfileScreen() {
           <>
             <Section title="ПРОФИЛЬ">
               <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 12 }}>
-                {profile.player.avatar_url ? (
-                  <Image source={{ uri: profile.player.avatar_url }} style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: colors.bgElevated }} />
-                ) : (
-                  <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: colors.orange, alignItems: "center", justifyContent: "center" }}>
-                    <Text style={{ color: colors.text, fontSize: 18, fontWeight: "700" }}>?</Text>
-                  </View>
+                <Pressable onPress={() => Platform.OS === "web" && fileInputRef.current?.click()}>
+                  {profile.player.avatar_url ? (
+                    <Image source={{ uri: profile.player.avatar_url }} style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: colors.bgElevated }} />
+                  ) : (
+                    <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: colors.orange, alignItems: "center", justifyContent: "center" }}>
+                      <Text style={{ color: colors.text, fontSize: 22, fontWeight: "700" }}>?</Text>
+                    </View>
+                  )}
+                </Pressable>
+                {Platform.OS === "web" && (
+                  <input
+                    ref={fileInputRef as any}
+                    type="file"
+                    accept="image/*"
+                    style={{ display: "none" }}
+                    onChange={handleFileSelect}
+                  />
                 )}
                 <View style={{ flex: 1 }}>
                   <TextInput
@@ -152,15 +271,11 @@ export default function ProfileScreen() {
                     value={editName}
                     onChangeText={setEditName}
                   />
+                  <Pressable onPress={() => Platform.OS === "web" && fileInputRef.current?.click()} style={{ marginTop: 6, backgroundColor: colors.bgElevated, padding: 6, borderRadius: 6, alignItems: "center" }}>
+                    <Text style={{ color: colors.orange, fontSize: 11, fontWeight: "600" }}>{uploading ? "Загрузка..." : "Загрузить аватарку"}</Text>
+                  </Pressable>
                 </View>
               </View>
-              <TextInput
-                style={{ color: colors.text60, fontSize: 11, backgroundColor: colors.bgRow, padding: 6, borderRadius: 4, marginBottom: 8 }}
-                placeholder="URL аватарки"
-                placeholderTextColor={colors.text40}
-                value={editAvatar}
-                onChangeText={setEditAvatar}
-              />
               <Pressable onPress={handleSave} disabled={saving} style={{ backgroundColor: colors.orange, padding: 8, borderRadius: 6, alignItems: "center" }}>
                 <Text style={{ color: colors.text, fontSize: 12, fontWeight: "600" }}>{saving ? "Сохранение..." : "Сохранить"}</Text>
               </Pressable>
@@ -289,6 +404,62 @@ export default function ProfileScreen() {
           </>
         )}
       </ScrollView>
+
+      <Modal visible={cropVisible} transparent animationType="fade">
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.85)", justifyContent: "center", alignItems: "center" }}>
+          <Text style={{ color: "#fff", fontSize: 14, marginBottom: 12 }}>Перетащите фото, затем нажмите «Обрезать»</Text>
+          <div style={{
+            width: "min(80vw, 400px)", height: "min(80vw, 400px)",
+            backgroundColor: "#000", position: "relative", cursor: "grab",
+          }}>
+            {cropImage && (
+              <img
+                ref={cropImgRef}
+                src={cropImage}
+                onLoad={(e) => {
+                  const el = e.target as HTMLImageElement;
+                  const s = Math.max(CROP_SIZE / el.naturalWidth, CROP_SIZE / el.naturalHeight);
+                  const rw = el.naturalWidth * s;
+                  const rh = el.naturalHeight * s;
+                  cropImgRenderedRef.current = { w: rw, h: rh };
+                  el.style.width = `${rw}px`;
+                  el.style.height = `${rh}px`;
+                  el.style.position = "absolute";
+                  el.style.left = "50%";
+                  el.style.top = "50%";
+                  el.style.transform = "translate(-50%, -50%)";
+                  el.style.userSelect = "none";
+                  el.style.pointerEvents = "auto";
+                  cropOffsetRef.current = { x: 0, y: 0 };
+                }}
+                onMouseDown={(e: any) => {
+                  e.preventDefault();
+                  cropDragRef.current = { dragging: true, startX: e.clientX, startY: e.clientY, imgStartX: cropOffsetRef.current.x, imgStartY: cropOffsetRef.current.y };
+                }}
+                draggable={false}
+              />
+            )}
+            <div style={{
+              position: "absolute", inset: 0, pointerEvents: "none",
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <div style={{
+                width: CROP_SIZE, height: CROP_SIZE, borderRadius: "50%",
+                boxShadow: "0 0 0 9999px rgba(0,0,0,0.6)",
+                border: `2px solid ${colors.orange}`,
+              }} />
+            </div>
+          </div>
+          <View style={{ flexDirection: "row", gap: 12, marginTop: 16 }}>
+            <Pressable onPress={() => { setCropVisible(false); setCropImage(null); }} style={{ backgroundColor: "#444", paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 }}>
+              <Text style={{ color: "#fff", fontSize: 13 }}>Отмена</Text>
+            </Pressable>
+            <Pressable onPress={handleCropConfirm} style={{ backgroundColor: colors.orange, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 }}>
+              <Text style={{ color: "#fff", fontSize: 13, fontWeight: "600" }}>Обрезать</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }

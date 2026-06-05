@@ -23,7 +23,7 @@ class Player(models.Model):
     peak_mmr = models.IntegerField(default=0)
     favorite_role = models.CharField(max_length=50, blank=True, null=True)
     is_coach = models.BooleanField(default=False, help_text="Зарегистрирован как тренер")
-    avatar_url = models.URLField(max_length=500, blank=True, default="", help_text="URL аватарки")
+    avatar_url = models.CharField(max_length=500, blank=True, default="", help_text="URL аватарки")
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -57,6 +57,49 @@ class Coach(models.Model):
         verbose_name_plural = "Тренеры"
 
 
+class CoachReview(models.Model):
+    """Отзыв пользователя о тренере"""
+    coach = models.ForeignKey(Coach, on_delete=models.CASCADE, related_name='coach_reviews')
+    reviewer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='coach_reviews_left')
+    rating = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text="Оценка 1-5"
+    )
+    text = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        unique_together = ['coach', 'reviewer']
+        verbose_name = "Отзыв о тренере"
+        verbose_name_plural = "Отзывы о тренерах"
+
+    def __str__(self):
+        return f"Review for {self.coach.user.username} by {self.reviewer.username} ({self.rating})"
+
+
+class CoachVideo(models.Model):
+    """Видео тренера (ролик до 60 минут)"""
+    coach = models.ForeignKey(Coach, on_delete=models.CASCADE, related_name='videos')
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True, default="")
+    file_url = models.CharField(max_length=1000, help_text="URL видео или путь к файлу")
+    thumbnail_url = models.URLField(max_length=500, blank=True, default="")
+    duration_seconds = models.PositiveIntegerField(default=0, help_text="Длительность в секундах (макс 3600)")
+    price = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Цена в USD (0 = бесплатно)")
+    view_count = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "Видео тренера"
+        verbose_name_plural = "Видео тренеров"
+
+    def __str__(self):
+        return f"{self.title} by {self.coach.user.username}"
+
+
 class CoachService(models.Model):
     """Услуга тренера"""
     coach = models.ForeignKey(Coach, on_delete=models.CASCADE, related_name='services')
@@ -64,6 +107,10 @@ class CoachService(models.Model):
     description = models.TextField(blank=True, help_text="Описание")
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Цена в USD/RUB")
     duration_minutes = models.IntegerField(default=60, help_text="Длительность в минутах")
+    video = models.ForeignKey(
+        CoachVideo, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='services', help_text="Видео, привязанное к услуге"
+    )
     is_active = models.BooleanField(default=True, help_text="Активна ли услуга")
     created_at = models.DateTimeField(auto_now_add=True)
 

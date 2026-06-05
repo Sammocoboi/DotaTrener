@@ -9,10 +9,11 @@ from django.shortcuts import get_object_or_404
 logger = logging.getLogger(__name__)
 
 from django.utils import timezone
-from .models import Match, Review, Mistake, Hero, Player, Coach, CoachService, CoachApplication, Conversation, Message
+from .models import Match, Review, Mistake, Hero, Player, Coach, CoachService, CoachApplication, Conversation, Message, CoachReview, CoachVideo
 from .serializers import (
     MatchSerializer, ReviewListSerializer, ReviewDetailSerializer, MistakeSerializer,
     CoachListSerializer, CoachDetailSerializer, CoachServiceSerializer,
+    CoachReviewSerializer, CoachVideoSerializer,
 )
 from .serializers import HeroSerializer
 class MatchViewSet(viewsets.ModelViewSet):
@@ -380,6 +381,87 @@ def _rank_label(season_rank: int) -> str:
 
 @api_view(["POST"])
 @perm([permissions.IsAuthenticated])
+def upload_avatar(request):
+    """Загрузить аватарку (файл)"""
+    file = request.FILES.get("file")
+    if not file:
+        return Response({"error": "Файл не передан"}, status=400)
+    if file.size > 5 * 1024 * 1024:
+        return Response({"error": "Файл слишком большой (макс 5 МБ)"}, status=400)
+    ext = file.name.rsplit(".", 1)[-1].lower() if "." in file.name else "jpg"
+    if ext not in ("jpg", "jpeg", "png", "gif", "webp"):
+        return Response({"error": "Допустимые форматы: jpg, png, gif, webp"}, status=400)
+    import uuid
+    filename = f"avatars/{request.user.id}_{uuid.uuid4().hex[:8]}.{ext}"
+    from django.conf import settings
+    import os
+    path = os.path.join(settings.MEDIA_ROOT, filename)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "wb+") as dest:
+        for chunk in file.chunks():
+            dest.write(chunk)
+    url = f"{request.scheme}://{request.get_host()}/{settings.MEDIA_URL.lstrip('/')}{filename}"
+    player, _ = Player.objects.get_or_create(user=request.user)
+    player.avatar_url = url
+    player.save(update_fields=["avatar_url"])
+    return Response({"url": url})
+
+
+@api_view(["POST"])
+@perm([permissions.IsAuthenticated])
+def upload_video(request):
+    """Загрузить видео (файл, макс 600 МБ)"""
+    coach = getattr(request.user, "coach_profile", None)
+    if not coach:
+        return Response({"error": "Вы не тренер"}, status=400)
+
+    file = request.FILES.get("file")
+    if not file:
+        return Response({"error": "Файл не передан"}, status=400)
+
+    max_size = 600 * 1024 * 1024
+    if file.size > max_size:
+        return Response({"error": "Файл слишком большой (макс 600 МБ)"}, status=400)
+
+    ext = file.name.rsplit(".", 1)[-1].lower() if "." in file.name else "mp4"
+    if ext not in ("mp4", "webm", "ogg", "mov", "mkv"):
+        return Response({"error": "Допустимые форматы: mp4, webm, ogg, mov, mkv"}, status=400)
+
+    import uuid
+    filename = f"videos/{request.user.id}_{uuid.uuid4().hex[:8]}.{ext}"
+    from django.conf import settings
+    import os
+    path = os.path.join(settings.MEDIA_ROOT, filename)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "wb+") as dest:
+        for chunk in file.chunks():
+            dest.write(chunk)
+
+    url = f"{request.scheme}://{request.get_host()}/{settings.MEDIA_URL.lstrip('/')}{filename}"
+
+    title = request.data.get("title", file.name.rsplit(".", 1)[0])
+    description = request.data.get("description", "")
+    duration = int(request.data.get("duration_seconds", 0))
+    price = request.data.get("price", "0")
+
+    video = CoachVideo.objects.create(
+        coach=coach,
+        title=title,
+        description=description,
+        file_url=url,
+        duration_seconds=duration,
+        price=price,
+    )
+
+    return Response({
+        "id": video.id,
+        "url": url,
+        "title": video.title,
+    }, status=201)
+
+
+@api_view(["POST"])
+@perm([permissions.IsAuthenticated])
 def become_coach(request):
     """Подать заявку на становление тренером"""
     player, _ = Player.objects.get_or_create(user=request.user)
@@ -462,6 +544,77 @@ def applications_list(request):
         "status": a.status,
         "created_at": a.created_at,
     } for a in apps])
+
+
+@api_view(["GET", "POST"])
+@perm([permissions.IsAuthenticatedOrReadOnly])
+def coach_reviews(request, coach_id):
+    """Отзывы о тренере: список / создать"""
+    coach = get_object_or_404(Coach, id=coach_id)
+
+    if request.method == "POST":
+        if not request.user.is_authenticated:
+            return Response({"error": "Авторизация обязательна"}, status=401)
+        if CoachReview.objects.filter(coach=coach, reviewer=request.user).exists():
+            return Response({"error": "Вы уже оставляли отзыв"}, status=400)
+        serializer = CoachReviewSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(coach=coach, reviewer=request.user)
+            return Response(serializer.data, status=201)
+        return Response(serializer.errors, status=400)
+
+    reviews = coach.coach_reviews.select_related('reviewer').all()
+    serializer = CoachReviewSerializer(reviews, many=True)
+    return Response(serializer.data)
+
+
+@api_view(["GET", "POST"])
+@perm([permissions.IsAuthenticated])
+def my_videos(request):
+    """Видео текущего тренера: список / создать"""
+    coach = getattr(request.user, "coach_profile", None)
+    if not coach:
+        return Response({"error": "Вы не тренер"}, status=400)
+
+    if request.method == "POST":
+        serializer = CoachVideoSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(coach=coach)
+            return Response(serializer.data, status=201)
+        return Response(serializer.errors, status=400)
+
+    videos = coach.videos.all()
+    serializer = CoachVideoSerializer(videos, many=True)
+    return Response(serializer.data)
+
+
+@api_view(["PATCH", "DELETE"])
+@perm([permissions.IsAuthenticated])
+def my_video_detail(request, video_id):
+    """Изменить/удалить видео тренера"""
+    coach = getattr(request.user, "coach_profile", None)
+    if not coach:
+        return Response({"error": "Вы не тренер"}, status=400)
+    video = get_object_or_404(CoachVideo, id=video_id, coach=coach)
+
+    if request.method == "DELETE":
+        video.delete()
+        return Response(status=204)
+
+    serializer = CoachVideoSerializer(video, data=request.data, partial=True)
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data)
+    return Response(serializer.errors, status=400)
+
+
+@api_view(["GET"])
+def coach_videos(request, coach_id):
+    """Публичный список видео тренера"""
+    coach = get_object_or_404(Coach, id=coach_id)
+    videos = coach.videos.filter(is_active=True)
+    serializer = CoachVideoSerializer(videos, many=True)
+    return Response(serializer.data)
 
 
 @api_view(["GET"])
@@ -820,10 +973,19 @@ def public_player_profile(request, steam_id):
     except Exception:
         logger.exception("OpenDota fetch failed for player %s", steam_id)
 
+    avatar = sa.get("avatar") or ""
+    if not avatar:
+        try:
+            pl = Player.objects.filter(steam_account_id=int(steam_id)).first()
+            if pl and pl.avatar_url:
+                avatar = pl.avatar_url
+        except Exception:
+            pass
+
     return Response({
         "steam_account_id": p.get("steamAccountId"),
         "nickname": sa.get("name") or "",
-        "avatar_url": sa.get("avatar") or "",
+        "avatar_url": avatar,
         "season_rank": rank_data.get("seasonRank", 0),
         "win_count": win_count,
         "lose_count": lose_count,
