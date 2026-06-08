@@ -26,19 +26,19 @@ class Command(BaseCommand):
             version=patch_version,
             defaults={'release_date': date.today(), 'is_current': (patch_version == 'current')}
         )
-        self.stdout.write(f"🔄 Загрузка мета-данных с OpenDota для патча {patch.version}...")
+        self.stdout.write(f"Zagruzka meta-dannyh s OpenDota dlya patch {patch.version}...")
 
         # 2️ Загружаем данные
         try:
-            resp = requests.get(OPEN_DOTA_URL, timeout=30)
+            resp = requests.get(OPEN_DOTA_URL, timeout=60)
             resp.raise_for_status()
             heroes_data = resp.json()
         except requests.RequestException as e:
-            self.stderr.write(self.style.ERROR(f"❌ Ошибка сети: {e}"))
+            self.stderr.write(self.style.ERROR(f"Oshibka seti: {e}"))
             return
 
         if not isinstance(heroes_data, list):
-            self.stderr.write(self.style.ERROR("❌ Неверный формат ответа от OpenDota"))
+            self.stderr.write(self.style.ERROR("Nevernyj format otveta ot OpenDota"))
             return
 
         saved_count = 0
@@ -74,4 +74,4 @@ class Command(BaseCommand):
                 )
                 saved_count += 1
 
-        self.stdout.write(self.style.SUCCESS(f"✅ Успешно сохранено мета-данных для {saved_count} героев."))
+        self.stdout.write(self.style.SUCCESS(f"Uspeshno sohraneno meta-dannyh dlya {saved_count} geroev."))

@@ -4,6 +4,13 @@ import os
 import sys
 
 
+def _patch_windows_encoding():
+    """Fix Windows console encoding for Unicode."""
+    if sys.platform == "win32":
+        import io
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+
 def _patch_psycopg2_windows_errors():
     """psycopg2 on Windows may fail decoding Russian libpq errors as UTF-8."""
     if sys.platform != "win32":
@@ -36,6 +43,7 @@ def _patch_psycopg2_windows_errors():
 def main():
     """Run administrative tasks."""
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'DotaTrener.settings')
+    _patch_windows_encoding()
     _patch_psycopg2_windows_errors()
     try:
         from django.core.management import execute_from_command_line

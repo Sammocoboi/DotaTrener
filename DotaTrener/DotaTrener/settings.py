@@ -62,7 +62,7 @@ TEMPLATES = [
     },
 ]
 
-#  PostgreSQL конфигурация (читает из .env)
+#  PostgreSQL конфигурация (читает из .env) с fallback на SQLite
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
@@ -73,6 +73,25 @@ DATABASES = {
         'PORT': os.getenv('DB_PORT', '5432'),
     }
 }
+
+# Fallback на SQLite если PostgreSQL недоступен
+try:
+    import psycopg2
+    conn = psycopg2.connect(
+        dbname=DATABASES['default']['NAME'],
+        user=DATABASES['default']['USER'],
+        password=DATABASES['default']['PASSWORD'],
+        host=DATABASES['default']['HOST'],
+        port=DATABASES['default']['PORT'],
+        connect_timeout=2,
+    )
+    conn.close()
+except Exception:
+    print("[WARN] PostgreSQL недоступен, используем SQLite (dev)")
+    DATABASES['default'] = {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},

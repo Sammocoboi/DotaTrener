@@ -17,7 +17,7 @@ class Command(BaseCommand):
         for i, v in enumerate(versions):
             vid = v.get("id")
             name = v.get("name") or str(vid)
-            marker = " ← latest" if i == 0 else ""
+            marker = " [latest]" if i == 0 else ""
             self.stdout.write(f"  {name} (id={vid}){marker}")
 
         self.stdout.write(f"\nПример: python manage.py sync_stratz_meta --patch {versions[0].get('name', '')}")
