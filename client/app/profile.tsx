@@ -5,7 +5,7 @@ import axios from "axios";
 import { getToken } from "@/lib/token-storage";
 import { colors } from "@/lib/theme";
 import { rankIconUrl } from "@/lib/rank-label";
-import { API_BASE as API } from "@/lib/api";
+import { API_BASE as API, API_ROOT } from "@/lib/api";
 
 
 type ProfileData = {
@@ -225,7 +225,7 @@ export default function ProfileScreen() {
   if (!token) return (
     <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 16, backgroundColor: colors.bg }}>
       <Text style={{ color: colors.text60, marginBottom: 8 }}>Войдите через Steam</Text>
-      <Pressable onPress={() => (typeof window !== "undefined" ? (window.location.href = "http://127.0.0.1:8000/api/auth/steam/login/?next=profile") : null)} style={{ backgroundColor: colors.orange, padding: 12, borderRadius: 8 }}>
+      <Pressable onPress={() => (typeof window !== "undefined" ? (window.location.href = `${API_ROOT}/api/auth/steam/login/?next=profile`) : null)} style={{ backgroundColor: colors.orange, padding: 12, borderRadius: 8 }}>
         <Text style={{ color: colors.text, fontWeight: "600" }}>Войти через Steam</Text>
       </Pressable>
     </View>

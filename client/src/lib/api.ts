@@ -1,9 +1,4 @@
-import { Platform } from "react-native";
-
-const NATIVE_HOST = "26.49.182.238";
-const WEB_HOST = "127.0.0.1";
-
-const HOST = Platform.OS === "web" ? WEB_HOST : NATIVE_HOST;
+const HOST = "83.222.16.188";
 
 export const API_BASE = `http://${HOST}:8000/api/coaching`;
 export const API_ROOT = `http://${HOST}:8000`;

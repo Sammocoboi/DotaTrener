@@ -4,7 +4,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import axios from "axios";
 import { getToken } from "@/lib/token-storage";
 import { colors } from "@/lib/theme";
-import { API_BASE as API } from "@/lib/api";
+import { API_BASE as API, API_ROOT } from "@/lib/api";
 
 
 type Match = {
@@ -56,7 +56,7 @@ export default function MatchesScreen() {
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center", gap: 12 }}>
           <Text style={{ color: colors.red }}>{error}</Text>
           <Pressable
-            onPress={() => { if (typeof window !== "undefined") window.location.href = "http://127.0.0.1:8000/api/auth/steam/login/?next=matches"; }}
+            onPress={() => { if (typeof window !== "undefined") window.location.href = `${API_ROOT}/api/auth/steam/login/?next=matches`; }}
             style={{ backgroundColor: colors.orange, padding: 12, borderRadius: 8 }}
           >
             <Text style={{ color: colors.text, fontWeight: "600" }}>Войти через Steam</Text>

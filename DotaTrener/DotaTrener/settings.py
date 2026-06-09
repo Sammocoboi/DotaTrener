@@ -11,7 +11,7 @@ load_dotenv(BASE_DIR / '.env')
 # 2️⃣ Базовые настройки Django
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-fallback-for-dev-only')
 DEBUG = os.getenv('DJANGO_DEBUG', 'True').lower() == 'true'
-ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1,testserver').split(',')
+ALLOWED_HOSTS = os.getenv('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1,testserver,83.222.16.188').split(',')
 
 INSTALLED_APPS = [
     'django.contrib.admin',
