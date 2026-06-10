@@ -1,35 +1,59 @@
+import * as SecureStore from "expo-secure-store";
+
 const TOKEN_KEY = "dota_trener_token";
 const STEAM_ID_KEY = "dota_trener_steam_id";
 
-function getStorage(): Storage | null {
-  if (typeof window !== "undefined" && window.localStorage) {
-    return window.localStorage;
+let _token: string | null = null;
+let _steamId: string | null = null;
+
+function isWeb(): boolean {
+  try {
+    return typeof window !== "undefined" && window.localStorage !== undefined;
+  } catch {
+    return false;
   }
-  return null;
+}
+
+export async function initToken() {
+  if (isWeb()) {
+    _token = window.localStorage.getItem(TOKEN_KEY);
+    _steamId = window.localStorage.getItem(STEAM_ID_KEY);
+  } else {
+    try {
+      _token = await SecureStore.getItemAsync(TOKEN_KEY);
+      _steamId = await SecureStore.getItemAsync(STEAM_ID_KEY);
+    } catch {}
+  }
 }
 
 export function saveToken(token: string, steam_id?: string) {
-  const storage = getStorage();
-  if (storage) {
-    storage.setItem(TOKEN_KEY, token);
-    if (steam_id) storage.setItem(STEAM_ID_KEY, steam_id);
+  _token = token;
+  if (steam_id) _steamId = steam_id;
+  if (isWeb()) {
+    window.localStorage.setItem(TOKEN_KEY, token);
+    if (steam_id) window.localStorage.setItem(STEAM_ID_KEY, steam_id);
+  } else {
+    SecureStore.setItemAsync(TOKEN_KEY, token);
+    if (steam_id) SecureStore.setItemAsync(STEAM_ID_KEY, steam_id);
   }
 }
 
 export function getToken(): string | null {
-  const storage = getStorage();
-  return storage ? storage.getItem(TOKEN_KEY) : null;
+  return _token;
 }
 
 export function getSteamId(): string | null {
-  const storage = getStorage();
-  return storage ? storage.getItem(STEAM_ID_KEY) : null;
+  return _steamId;
 }
 
 export function clearToken() {
-  const storage = getStorage();
-  if (storage) {
-    storage.removeItem(TOKEN_KEY);
-    storage.removeItem(STEAM_ID_KEY);
+  _token = null;
+  _steamId = null;
+  if (isWeb()) {
+    window.localStorage.removeItem(TOKEN_KEY);
+    window.localStorage.removeItem(STEAM_ID_KEY);
+  } else {
+    SecureStore.deleteItemAsync(TOKEN_KEY);
+    SecureStore.deleteItemAsync(STEAM_ID_KEY);
   }
 }

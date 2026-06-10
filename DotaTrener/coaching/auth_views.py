@@ -8,7 +8,6 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 
 STEAM_OPENID_URL = "https://steamcommunity.com/openid/login"
-FRONTEND_URL = getattr(settings, "FRONTEND_URL", "http://localhost:8081")
 STEAM_ID_OFFSET = 76561197960265728
 
 
@@ -105,7 +104,7 @@ class SteamCallbackView(View):
 
         next_page = request.GET.get("next", "")
         redirect_url = (
-            f"{FRONTEND_URL}/auth-callback"
+            request.build_absolute_uri("/auth-callback/")
             f"?token={token.key}"
             f"&steam_id={user.player_profile.steam_account_id}"
             f"&username={user.username}"

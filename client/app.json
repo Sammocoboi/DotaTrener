@@ -18,7 +18,8 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.sammo_soboi.client"
+      "package": "com.sammo_soboi.client",
+      "usesCleartextTraffic": true
     },
     "web": {
       "output": "static",
