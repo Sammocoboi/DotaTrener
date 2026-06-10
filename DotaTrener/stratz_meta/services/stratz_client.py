@@ -3,10 +3,16 @@ import time
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Tuple
 
-import requests
 from django.conf import settings
 
 logger = logging.getLogger(__name__)
+
+HAS_CLOUDSCRAPER = False
+try:
+    import cloudscraper
+    HAS_CLOUDSCRAPER = True
+except ImportError:
+    import requests
 
 HEROES_QUERY = """
 {
@@ -208,12 +214,15 @@ class StratzClient:
             raise ValueError("STRATZ_API_KEY is not set")
         self.graphql_url = settings.STRATZ_API_URL
         self.rest_url = settings.STRATZ_REST_URL
-        self.session = requests.Session()
+        if HAS_CLOUDSCRAPER:
+            self.session = cloudscraper.create_scraper()
+        else:
+            self.session = requests.Session()
         self.session.headers.update(
             {
                 "Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json",
-                "User-Agent": "STRATZ_API/1.0",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
             }
         )
         self._version_name_to_id: Optional[Dict[str, int]] = None

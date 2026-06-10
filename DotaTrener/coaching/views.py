@@ -21,12 +21,16 @@ class MatchViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
+        player = getattr(self.request.user, "player_profile", None)
+        if not player:
+            return Match.objects.none()
         return Match.objects.filter(
-            player=self.request.user.player_profile
+            player=player
         ).select_related('hero', 'review').order_by('-played_at')
 
     def perform_create(self, serializer):
-        serializer.save(player=self.request.user.player_profile)
+        player, _ = Player.objects.get_or_create(user=self.request.user)
+        serializer.save(player=player)
 
 
 class ReviewViewSet(viewsets.ModelViewSet):
