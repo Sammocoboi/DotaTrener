@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { View, Text, ScrollView, Pressable, TextInput, Image, Platform, Modal } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
 import axios from "axios";
 import { getToken } from "@/lib/token-storage";
 import { colors } from "@/lib/theme";
@@ -225,7 +226,14 @@ export default function ProfileScreen() {
   if (!token) return (
     <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 16, backgroundColor: colors.bg }}>
       <Text style={{ color: colors.text60, marginBottom: 8 }}>Войдите через Steam</Text>
-      <Pressable onPress={() => (typeof window !== "undefined" ? (window.location.href = `${API_ROOT}/api/auth/steam/login/?next=profile`) : null)} style={{ backgroundColor: colors.orange, padding: 12, borderRadius: 8 }}>
+      <Pressable onPress={() => {
+        const url = `${API_ROOT}/api/auth/steam/login/?next=profile`;
+        if (Platform.OS === "web") {
+          window.location.href = url;
+        } else {
+          WebBrowser.openAuthSessionAsync(url, "client://auth-callback");
+        }
+      }} style={{ backgroundColor: colors.orange, padding: 12, borderRadius: 8 }}>
         <Text style={{ color: colors.text, fontWeight: "600" }}>Войти через Steam</Text>
       </Pressable>
     </View>

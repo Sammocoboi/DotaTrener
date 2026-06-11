@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { View, Text, FlatList, Pressable, ScrollView } from "react-native";
+import { View, Text, FlatList, Pressable, ScrollView, Platform } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
 import axios from "axios";
 import { getToken } from "@/lib/token-storage";
 import { colors } from "@/lib/theme";
@@ -56,7 +57,14 @@ export default function MatchesScreen() {
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center", gap: 12 }}>
           <Text style={{ color: colors.red }}>{error}</Text>
           <Pressable
-            onPress={() => { if (typeof window !== "undefined") window.location.href = `${API_ROOT}/api/auth/steam/login/?next=matches`; }}
+            onPress={() => {
+              const url = `${API_ROOT}/api/auth/steam/login/?next=matches`;
+              if (Platform.OS === "web") {
+                window.location.href = url;
+              } else {
+                WebBrowser.openAuthSessionAsync(url, "client://auth-callback");
+              }
+            }}
             style={{ backgroundColor: colors.orange, padding: 12, borderRadius: 8 }}
           >
             <Text style={{ color: colors.text, fontWeight: "600" }}>Войти через Steam</Text>

@@ -28,7 +28,7 @@ export default function SteamLink() {
     }
     setLoading(true);
     try {
-      await WebBrowser.openBrowserAsync(url);
+      await WebBrowser.openAuthSessionAsync(url, "client://auth-callback");
     } catch (e) {
       console.error(e);
     } finally {
