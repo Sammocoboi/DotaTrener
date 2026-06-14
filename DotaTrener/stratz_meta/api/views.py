@@ -33,6 +33,7 @@ class HeroMetaViewSet(viewsets.ReadOnlyModelViewSet):
         patch = self.request.query_params.get('patch')
         hero_name = self.request.query_params.get('hero')
         min_winrate = self.request.query_params.get('min_wr')
+        source = self.request.query_params.get('source')
         
         if patch:
             qs = qs.filter(patch__version=patch)
@@ -40,6 +41,8 @@ class HeroMetaViewSet(viewsets.ReadOnlyModelViewSet):
             qs = qs.filter(hero__localized_name__icontains=hero_name)
         if min_winrate:
             qs = qs.filter(win_rate__gte=float(min_winrate))
+        if source:
+            qs = qs.filter(source=source)
             
         return qs.order_by('-win_rate')
 
@@ -50,7 +53,12 @@ class HeroMetaViewSet(viewsets.ReadOnlyModelViewSet):
         if not current_patch:
             return Response({'error': 'Актуальный патч не найден'}, status=404)
         
-        qs = HeroMeta.objects.filter(patch=current_patch).select_related('hero').order_by('-win_rate')
+        qs = HeroMeta.objects.filter(patch=current_patch).select_related('hero')
+        source = request.query_params.get('source')
+        if source:
+            qs = qs.filter(source=source)
+        qs = qs.order_by('-win_rate')
+        
         page = self.paginate_queryset(qs)
         if page is not None:
             serializer = self.get_serializer(page, many=True)

@@ -16,13 +16,14 @@ class StratzPatch(models.Model):
 
 
 class HeroMeta(models.Model):
-    """Мета-статистика героя по патчу (Stratz)"""
+    """Мета-статистика героя по патчу"""
+    SOURCE_CHOICES = [('stratz', 'Stratz'), ('opendota', 'OpenDota')]
+    source = models.CharField(max_length=10, choices=SOURCE_CHOICES, default='stratz', help_text="Источник данных")
     hero = models.ForeignKey('coaching.Hero', on_delete=models.CASCADE, related_name='stratz_meta')
     patch = models.ForeignKey(StratzPatch, on_delete=models.CASCADE)
     
-    # 🔥 Stratz использует 'Day' суффикс для статистики
-    pick_rate = models.FloatField(default=0.0, help_text="% пиков (pickDay)")
-    win_rate = models.FloatField(default=0.0, help_text="% побед (winDay)")
+    pick_rate = models.FloatField(default=0.0, help_text="% пиков")
+    win_rate = models.FloatField(default=0.0, help_text="% побед")
     ban_rate = models.FloatField(default=0.0, help_text="% банов (banDay)")
     games_played = models.PositiveIntegerField(default=0, help_text="gamesPlayed")
     roles = models.JSONField(default=dict, blank=True, help_text="{'Carry': 42.5, 'Mid': 31.0}")

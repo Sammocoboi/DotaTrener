@@ -32,6 +32,7 @@ INSTALLED_APPS = [
 ]
 CORS_ALLOW_ALL_ORIGINS = True
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:8081")
+SITE_URL = os.getenv("SITE_URL", "http://localhost:8000")
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",  
     'django.middleware.security.SecurityMiddleware',

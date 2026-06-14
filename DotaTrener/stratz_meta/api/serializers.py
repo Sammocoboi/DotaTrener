@@ -23,7 +23,7 @@ class HeroMetaListSerializer(serializers.ModelSerializer):
     class Meta:
         model = HeroMeta
         fields = [
-            'id', 'hero', 'hero_name', 'hero_image', 'patch_version',
+            'id', 'source', 'hero', 'hero_name', 'hero_image', 'patch_version',
             'win_rate', 'pick_rate', 'ban_rate', 'games_played',
             'avg_kills', 'avg_deaths', 'avg_assists', 'avg_gpm', 'avg_xpm',
             'avg_last_hits', 'avg_denies', 'avg_kda',
@@ -39,7 +39,7 @@ class HeroMetaDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = HeroMeta
         fields = [
-            'id', 'hero', 'hero_name', 'hero_image', 'patch_version',
+            'id', 'source', 'hero', 'hero_name', 'hero_image', 'patch_version',
             'win_rate', 'pick_rate', 'ban_rate', 'games_played',
             'roles', 'builds', 'updated_at',
             'avg_kills', 'avg_deaths', 'avg_assists', 'avg_gpm', 'avg_xpm',

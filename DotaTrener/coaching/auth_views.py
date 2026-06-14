@@ -77,7 +77,8 @@ def _get_or_create_user(steam_id: str) -> tuple[User, bool]:
 class SteamLoginView(View):
     def get(self, request):
         next_page = request.GET.get("next", "")
-        callback = request.build_absolute_uri("/api/auth/steam/callback/")
+        site_url = getattr(settings, "SITE_URL", "http://localhost:8000")
+        callback = f"{site_url}/api/auth/steam/callback/"
         if next_page:
             callback += f"?next={urllib.parse.quote(next_page)}"
         login_url = _build_steam_login_url(callback)
@@ -103,8 +104,9 @@ class SteamCallbackView(View):
         token, _ = Token.objects.get_or_create(user=user)
 
         next_page = request.GET.get("next", "")
+        site_url = getattr(settings, "SITE_URL", "http://localhost:8000")
         redirect_url = (
-            request.build_absolute_uri("/auth-callback/")
+            f"{site_url}/auth-callback/"
             f"?token={token.key}"
             f"&steam_id={user.player_profile.steam_account_id}"
             f"&username={user.username}"

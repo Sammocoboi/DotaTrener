@@ -157,6 +157,7 @@ class StratzSyncService:
         builds_data: List[Dict[str, Any]],
     ) -> int:
         defaults = {
+            "source": "stratz",
             "pick_rate": meta_data["pick_rate"],
             "win_rate": meta_data["win_rate"],
             "ban_rate": meta_data["ban_rate"],
