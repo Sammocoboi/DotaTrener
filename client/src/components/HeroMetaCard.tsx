@@ -8,9 +8,9 @@ type Props = {
 };
 
 const HeroMetaCard = ({ herometa, onPress }: Props) => {
-  const winPercent = herometa.win_rate.toFixed(1);
-  const pickPercent = herometa.pick_rate.toFixed(1);
-  const banPercent = herometa.ban_rate.toFixed(1);
+  const winPercent = Number(herometa.win_rate ?? 0).toFixed(1);
+  const pickPercent = Number(herometa.pick_rate ?? 0).toFixed(1);
+  const banPercent = Number(herometa.ban_rate ?? 0).toFixed(1);
 
   return (
     <Pressable onPress={onPress} style={styles.card}>
@@ -28,26 +28,26 @@ const HeroMetaCard = ({ herometa, onPress }: Props) => {
         <StatBadge label="Win" value={`${winPercent}%`} color="#22C55E" />
         <StatBadge label="Pick" value={`${pickPercent}%`} color="#3B82F6" />
         <StatBadge label="Ban" value={`${banPercent}%`} color="#EF4444" />
-        <StatBadge label="Games" value={`${herometa.games_played}`} color="#A78BFA" />
+        <StatBadge label="Games" value={`${herometa.games_played ?? 0}`} color="#A78BFA" />
       </View>
 
       <View style={styles.avgRow}>
         <Text style={styles.avgLabel}>K/D/A</Text>
         <Text style={styles.avgValue}>
-          {herometa.avg_kills.toFixed(1)} / {herometa.avg_deaths.toFixed(1)} / {herometa.avg_assists.toFixed(1)}
+          {Number(herometa.avg_kills ?? 0).toFixed(1)} / {Number(herometa.avg_deaths ?? 0).toFixed(1)} / {Number(herometa.avg_assists ?? 0).toFixed(1)}
         </Text>
       </View>
 
       <View style={styles.avgRow}>
         <Text style={styles.avgLabel}>GPM / XPM</Text>
         <Text style={styles.avgValue}>
-          {Math.round(herometa.avg_gpm)} / {Math.round(herometa.avg_xpm)}
+          {Math.round(Number(herometa.avg_gpm ?? 0))} / {Math.round(Number(herometa.avg_xpm ?? 0))}
         </Text>
       </View>
 
       <View style={styles.avgRow}>
         <Text style={styles.avgLabel}>KDA</Text>
-        <Text style={styles.avgValue}>{herometa.avg_kda.toFixed(2)}</Text>
+        <Text style={styles.avgValue}>{Number(herometa.avg_kda ?? 0).toFixed(2)}</Text>
       </View>
 
       {herometa.roles && Object.keys(herometa.roles).length > 0 && (
@@ -55,7 +55,7 @@ const HeroMetaCard = ({ herometa, onPress }: Props) => {
           {Object.entries(herometa.roles).map(([role, value]) => (
             <View key={role} style={styles.roleBadge}>
               <Text style={styles.roleText}>{role}</Text>
-              <Text style={styles.roleValue}>{value.toFixed(1)}%</Text>
+              <Text style={styles.roleValue}>{Number(value ?? 0).toFixed(1)}%</Text>
             </View>
           ))}
         </View>

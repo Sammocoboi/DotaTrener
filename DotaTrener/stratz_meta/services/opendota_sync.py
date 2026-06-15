@@ -69,6 +69,9 @@ class OpenDotaSyncService:
                 short_name = internal_name.replace("npc_dota_hero_", "") if internal_name else ""
                 image_url = f"https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/{short_name}.png"
 
+                raw_roles = hero_info.get("roles") or []
+                hero_roles = {r: 1 for r in raw_roles} if isinstance(raw_roles, list) else raw_roles
+
                 _, created = Hero.objects.update_or_create(
                     steam_id=int(hero_id),
                     defaults={
@@ -76,6 +79,7 @@ class OpenDotaSyncService:
                         "localized_name": localized[:100],
                         "primary_attr": primary_attr,
                         "image_url": image_url,
+                        "roles": hero_roles,
                     },
                 )
                 if created:
@@ -94,6 +98,7 @@ class OpenDotaSyncService:
         hero_ids: Optional[List[int]] = None,
         limit: Optional[int] = None,
         ensure_heroes: bool = True,
+        min_games: int = 300,
         on_progress=None,
     ) -> OpenDotaSyncStats:
         patch = self.sync_patches(target_version=patch_version)
@@ -107,6 +112,7 @@ class OpenDotaSyncService:
             return OpenDotaSyncStats()
 
         stats_map = {s["id"]: s for s in stats if "id" in s}
+        hero_map = self.client.get_hero_map()
         total_games = self.client.compute_total_games_per_bracket()
         bracket_total = total_games.get(bracket)
 
@@ -133,11 +139,26 @@ class OpenDotaSyncService:
                 hero_stat,
                 bracket=bracket,
                 total_games_bracket=bracket_total,
+                min_games=min_games,
             )
+
             if not meta_data:
                 sync_stats.failed += 1
                 logger.warning("OpenDota: no meta for hero %s", label)
                 continue
+
+            used_brackets = meta_data.pop("_used_brackets", None)
+            if used_brackets and len(used_brackets) > 1:
+                aggregated_total = self.client.compute_total_games_for_prefixes(used_brackets)
+                if aggregated_total > 0:
+                    meta_data["pick_rate"] = round(meta_data["games_played"] / aggregated_total * 100, 2)
+
+            hero_info = hero_map.get(int(hero_id), {})
+            raw_roles = hero_info.get("roles") or []
+            if isinstance(raw_roles, list):
+                hero_roles = {r: 1 for r in raw_roles}
+            else:
+                hero_roles = raw_roles
 
             hero_obj = Hero.objects.filter(steam_id=int(hero_id)).first()
             if not hero_obj:
@@ -160,7 +181,7 @@ class OpenDotaSyncService:
                         "win_rate": meta_data["win_rate"],
                         "ban_rate": meta_data["ban_rate"],
                         "games_played": meta_data["games_played"],
-                        "roles": {},
+                        "roles": hero_roles,
                         "avg_kills": meta_data.get("avg_kills"),
                         "avg_deaths": meta_data.get("avg_deaths"),
                         "avg_assists": meta_data.get("avg_assists"),
@@ -176,7 +197,8 @@ class OpenDotaSyncService:
                     },
                 )
                 sync_stats.success += 1
-                logger.info("[%s/%s] %s: WR=%s%% games=%s", processed, sync_stats.total, label, meta_data["win_rate"], meta_data["games_played"])
+                bracket_info = meta_data.get("bracket", bracket)
+                logger.info("[%s/%s] %s: WR=%s%% games=%s bracket=%s", processed, sync_stats.total, label, meta_data["win_rate"], meta_data["games_played"], bracket_info)
             except Exception as exc:
                 logger.exception("Failed to save hero %s: %s", hero_id, exc)
                 sync_stats.failed += 1

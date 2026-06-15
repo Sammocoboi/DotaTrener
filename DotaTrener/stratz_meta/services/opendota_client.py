@@ -100,31 +100,111 @@ class OpenDotaClient:
                 totals[key] = total
         return totals
 
+    def compute_total_games_for_prefixes(self, prefixes: List[str]) -> int:
+        stats = self.fetch_hero_stats()
+        total = 0
+        for prefix in prefixes:
+            total += sum(
+                int(s.get(f"{prefix}_pick") or 0)
+                for s in stats
+                if s.get("id") is not None
+            )
+        return total
+
+    BRACKET_FALLBACK_ORDER: Dict[str, List[str]] = {
+        "pro": ["pro"],
+        "immortal": ["8", "7", "6", "5", "4", "3", "2", "1"],
+        "divine": ["7", "6", "5", "4", "3", "2", "1"],
+        "ancient": ["6", "5", "4", "3", "2", "1"],
+        "legend": ["5", "4", "3", "2", "1"],
+        "archon": ["4", "3", "2", "1"],
+        "crusader": ["3", "2", "1"],
+        "guardian": ["2", "1"],
+        "herald": ["1"],
+    }
+
+    AVERAGE_FIELDS = (
+        "avg_kills", "avg_deaths", "avg_assists", "avg_gpm", "avg_xpm",
+        "avg_last_hits", "avg_denies", "avg_kda", "avg_hero_damage", "avg_tower_damage",
+    )
+
+    def _aggregate_bracket_stats(self, hero_stat: Dict[str, Any], prefixes: List[str]) -> Dict[str, Any]:
+        total_pick = 0
+        total_win = 0
+        total_ban = 0
+
+        for prefix in prefixes:
+            pick = int(hero_stat.get(f"{prefix}_pick") or 0)
+            if pick == 0:
+                continue
+            win = int(hero_stat.get(f"{prefix}_win") or 0)
+            ban = int(hero_stat.get(f"{prefix}_ban") or 0)
+            total_pick += pick
+            total_win += win
+            total_ban += ban
+
+        result: Dict[str, Any] = {
+            "pick": total_pick,
+            "win": total_win,
+            "ban": total_ban,
+        }
+
+        top_prefix = prefixes[0] if prefixes else None
+        use_pro = top_prefix == "pro" if top_prefix else False
+
+        for field in self.AVERAGE_FIELDS:
+            val = None
+            if field == "avg_kda":
+                field_key = "kda"
+            else:
+                field_key = field
+
+            for prefix in prefixes:
+                val = _float_or_none(hero_stat.get(f"{prefix}_{field_key}"))
+                if val is not None:
+                    break
+
+            if val is None:
+                val = _float_or_none(hero_stat.get(field_key))
+
+            if val is None and use_pro:
+                val = _float_or_none(hero_stat.get(f"pro_{field_key}"))
+
+            result[field] = val
+
+        return result
+
     def build_meta_for_hero(
         self,
         hero_stat: Dict[str, Any],
         bracket: str = "immortal",
         total_games_bracket: Optional[int] = None,
+        min_games: int = 300,
     ) -> Optional[Dict[str, Any]]:
         hero_id = hero_stat.get("id")
         if hero_id is None:
             return None
 
-        prefix = BRACKET_PREFIXES.get(bracket.lower(), "8")
-        pick = int(hero_stat.get(f"{prefix}_pick") or 0)
-        win = int(hero_stat.get(f"{prefix}_win") or 0)
-        ban = int(hero_stat.get(f"{prefix}_ban") or 0)
+        fallback_order = self.BRACKET_FALLBACK_ORDER.get(bracket.lower(), ["8", "7", "6", "5", "4", "3", "2", "1"])
 
-        if pick == 0 and prefix != "pro":
-            pro_pick = int(hero_stat.get("pro_pick") or 0)
-            if pro_pick > 0:
-                pick, win, ban = pro_pick, int(hero_stat.get("pro_win") or 0), int(hero_stat.get("pro_ban") or 0)
-            else:
-                higher = str(int(prefix) - 1) if prefix.isdigit() and int(prefix) > 1 else None
-                if higher:
-                    pick = int(hero_stat.get(f"{higher}_pick") or 0)
-                    win = int(hero_stat.get(f"{higher}_win") or 0)
-                    ban = int(hero_stat.get(f"{higher}_ban") or 0)
+        used_prefixes: List[str] = []
+        for idx in range(len(fallback_order)):
+            prefixes = fallback_order[:idx + 1]
+            aggr = self._aggregate_bracket_stats(hero_stat, prefixes)
+            if aggr["pick"] >= min_games:
+                used_prefixes = prefixes
+                break
+
+        if not used_prefixes:
+            return None
+
+        aggr = self._aggregate_bracket_stats(hero_stat, used_prefixes)
+        pick = aggr["pick"]
+        win = aggr["win"]
+        ban = aggr["ban"]
+
+        if pick == 0:
+            return None
 
         win_rate = round(win / pick * 100, 2) if pick else 0.0
         ban_rate = round(ban / (pick + ban) * 100, 2) if (pick + ban) else 0.0
@@ -139,8 +219,6 @@ class OpenDotaClient:
 
         image_url = f"https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/{short_name}.png"
 
-        use_pro = prefix == "pro" or pick == int(hero_stat.get("pro_pick") or 0)
-
         return {
             "id": hero_id,
             "name": internal_name,
@@ -152,19 +230,20 @@ class OpenDotaClient:
             "win_rate": win_rate,
             "ban_rate": ban_rate,
             "games_played": pick,
-            "bracket": bracket,
-            "avg_kills": _float_or_none(hero_stat.get(f"{'pro_' if use_pro else ''}avg_kills")),
-            "avg_deaths": _float_or_none(hero_stat.get(f"{'pro_' if use_pro else ''}avg_deaths")),
-            "avg_assists": _float_or_none(hero_stat.get(f"{'pro_' if use_pro else ''}avg_assists")),
-            "avg_gpm": _float_or_none(hero_stat.get(f"{'pro_' if use_pro else ''}avg_gpm")),
-            "avg_xpm": _float_or_none(hero_stat.get(f"{'pro_' if use_pro else ''}avg_xpm")),
-            "avg_last_hits": _float_or_none(hero_stat.get(f"{'pro_' if use_pro else ''}avg_last_hits")),
-            "avg_denies": _float_or_none(hero_stat.get(f"{'pro_' if use_pro else ''}avg_denies")),
-            "avg_kda": _float_or_none(hero_stat.get(f"{'pro_' if use_pro else ''}kda")),
-            "avg_hero_damage": _float_or_none(hero_stat.get(f"{'pro_' if use_pro else ''}avg_hero_damage")),
-            "avg_tower_damage": _float_or_none(hero_stat.get(f"{'pro_' if use_pro else ''}avg_tower_damage")),
+            "bracket": f"{bracket}_{used_prefixes[0]}-{used_prefixes[-1]}",
+            "avg_kills": aggr.get("avg_kills"),
+            "avg_deaths": aggr.get("avg_deaths"),
+            "avg_assists": aggr.get("avg_assists"),
+            "avg_gpm": aggr.get("avg_gpm"),
+            "avg_xpm": aggr.get("avg_xpm"),
+            "avg_last_hits": aggr.get("avg_last_hits"),
+            "avg_denies": aggr.get("avg_denies"),
+            "avg_kda": aggr.get("avg_kda"),
+            "avg_hero_damage": aggr.get("avg_hero_damage"),
+            "avg_tower_damage": aggr.get("avg_tower_damage"),
             "avg_networth": None,
             "avg_kill_participation": None,
+            "_used_brackets": used_prefixes,
         }
 
     def fetch_player_recent_matches(self, account_id: int) -> List[Dict[str, Any]]:

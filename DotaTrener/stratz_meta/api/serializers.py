@@ -1,6 +1,7 @@
 # stratz_meta/serializers.py
 from rest_framework import serializers
 from ..models import StratzPatch, HeroMeta, HeroBuild
+from ..hero_positions import get_hero_positions
 
 
 class HeroBuildSerializer(serializers.ModelSerializer):
@@ -18,16 +19,21 @@ class StratzPatchSerializer(serializers.ModelSerializer):
 class HeroMetaListSerializer(serializers.ModelSerializer):
     hero_name = serializers.CharField(source='hero.localized_name', read_only=True)
     hero_image = serializers.CharField(source='hero.image_url', read_only=True)
+    hero_attr = serializers.CharField(source='hero.primary_attr', read_only=True)
     patch_version = serializers.CharField(source='patch.version', read_only=True)
+    positions = serializers.SerializerMethodField()
 
     class Meta:
         model = HeroMeta
         fields = [
-            'id', 'source', 'hero', 'hero_name', 'hero_image', 'patch_version',
-            'win_rate', 'pick_rate', 'ban_rate', 'games_played',
+            'id', 'source', 'hero', 'hero_name', 'hero_image', 'hero_attr', 'patch_version',
+            'win_rate', 'pick_rate', 'ban_rate', 'games_played', 'roles', 'positions',
             'avg_kills', 'avg_deaths', 'avg_assists', 'avg_gpm', 'avg_xpm',
             'avg_last_hits', 'avg_denies', 'avg_kda',
         ]
+
+    def get_positions(self, obj):
+        return get_hero_positions(obj.hero.steam_id)
 
 
 class HeroMetaDetailSerializer(serializers.ModelSerializer):

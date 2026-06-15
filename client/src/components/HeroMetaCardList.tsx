@@ -9,7 +9,7 @@ import HeroMetaCard from "./HeroMetaCard";
 type Props = {
   searchQuery: string;
   selectedAttributes: string[];
-  selectedPositions: string[];
+  selectedPositions: number[];
 };
 
 const HeroMetaCardList = ({ searchQuery, selectedAttributes, selectedPositions }: Props) => {
@@ -20,7 +20,28 @@ const HeroMetaCardList = ({ searchQuery, selectedAttributes, selectedPositions }
     const fetchHeroes = async () => {
       try {
         const res = await axios.get(API_URL);
-        setHeroes(res.data.results || []);
+        const raw: HeroMeta[] = res.data.results || [];
+        const sanitized = raw.map(h => ({
+          ...h,
+          roles: h.roles ?? {},
+          pick_rate: Number(h.pick_rate) || 0,
+          win_rate: Number(h.win_rate) || 0,
+          ban_rate: Number(h.ban_rate) || 0,
+          games_played: Number(h.games_played) || 0,
+          avg_kills: Number(h.avg_kills) || 0,
+          avg_deaths: Number(h.avg_deaths) || 0,
+          avg_assists: Number(h.avg_assists) || 0,
+          avg_gpm: Number(h.avg_gpm) || 0,
+          avg_xpm: Number(h.avg_xpm) || 0,
+          avg_last_hits: Number(h.avg_last_hits) || 0,
+          avg_denies: Number(h.avg_denies) || 0,
+          avg_networth: Number(h.avg_networth) || 0,
+          avg_hero_damage: Number(h.avg_hero_damage) || 0,
+          avg_tower_damage: Number(h.avg_tower_damage) || 0,
+          avg_kda: Number(h.avg_kda) || 0,
+          avg_kill_participation: Number(h.avg_kill_participation) || 0,
+        }));
+        setHeroes(sanitized);
       } catch (err) {
         console.error("Failed to fetch heroes:", err);
       }
@@ -36,16 +57,13 @@ const HeroMetaCardList = ({ searchQuery, selectedAttributes, selectedPositions }
     }
 
     if (selectedAttributes.length > 0) {
-      result = result.filter(h => {
-        const roles = Object.keys(h.roles);
-        return roles.some(r => selectedAttributes.some(a => r.toLowerCase().includes(a)));
-      });
+      result = result.filter(h => selectedAttributes.includes(h.hero_attr));
     }
 
     if (selectedPositions.length > 0) {
       result = result.filter(h => {
-        const roles = Object.keys(h.roles);
-        return roles.some(r => selectedPositions.some(p => r.toLowerCase().includes(p.replace("Pos ", ""))));
+        const heroPositions = h.positions || [];
+        return selectedPositions.some(p => heroPositions.includes(p));
       });
     }
 

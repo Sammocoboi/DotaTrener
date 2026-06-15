@@ -37,6 +37,11 @@ class HeroMetaViewSet(viewsets.ReadOnlyModelViewSet):
         
         if patch:
             qs = qs.filter(patch__version=patch)
+        else:
+            current_patch = StratzPatch.objects.filter(is_current=True).first()
+            if current_patch:
+                qs = qs.filter(patch=current_patch)
+
         if hero_name:
             qs = qs.filter(hero__localized_name__icontains=hero_name)
         if min_winrate:

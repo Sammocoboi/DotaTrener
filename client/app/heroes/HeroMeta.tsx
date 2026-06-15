@@ -10,17 +10,17 @@ import { colors } from "@/lib/theme";
 const HeroMeta = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedAttributes, setSelectedAttributes] = useState<string[]>([]);
-  const [selectedPositions, setSelectedPositions] = useState<string[]>([]);
+  const [selectedPositions, setSelectedPositions] = useState<number[]>([]);
 
   const attributes = [
-    { id: "strength", label: "Strength", icon: "💪" },
-    { id: "agility", label: "Agility", icon: "⚡" },
-    { id: "intelligence", label: "Intelligence", icon: "🔮" },
+    { id: "str", label: "Strength", icon: "💪" },
+    { id: "agi", label: "Agility", icon: "⚡" },
+    { id: "int", label: "Intelligence", icon: "🔮" },
   ];
 
-  const positions = ["Pos 1", "Pos 2", "Pos 3", "Pos 4", "Pos 5"];
+  const positions = [1, 2, 3, 4, 5];
 
-  const toggleFilter = (setter: React.Dispatch<React.SetStateAction<string[]>>, value: string) => {
+  const toggleFilter = (setter: React.Dispatch<React.SetStateAction<any[]>>, value: any) => {
     setter(prev => prev.includes(value) ? prev.filter(v => v !== value) : [...prev, value]);
   };
 
@@ -53,12 +53,12 @@ const HeroMeta = () => {
         <Text style={{ color: colors.text40, fontSize: 11, fontWeight: "600", letterSpacing: 0.8, marginHorizontal: 16, marginBottom: 8, marginTop: 4 }}>ATTRIBUTES</Text>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginHorizontal: 16, marginBottom: 16 }}>
           {attributes.map((attr) => {
-            const attrColor = attr.id === "strength" ? colors.red : attr.id === "agility" ? colors.orange : colors.blue;
+            const attrColor = attr.id === "str" ? colors.red : attr.id === "agi" ? colors.orange : colors.blue;
             return (
             <TouchableOpacity
               key={attr.id}
               onPress={() => toggleFilter(setSelectedAttributes, attr.id)}
-              style={[chipBase, selectedAttributes.includes(attr.id) && { backgroundColor: attr.id === "strength" ? "rgba(239,68,68,0.12)" : attr.id === "agility" ? "rgba(249,115,22,0.12)" : "rgba(59,130,246,0.15)", borderColor: attrColor }]}
+              style={[chipBase, selectedAttributes.includes(attr.id) && { backgroundColor: attr.id === "str" ? "rgba(239,68,68,0.12)" : attr.id === "agi" ? "rgba(249,115,22,0.12)" : "rgba(59,130,246,0.15)", borderColor: attrColor }]}
             >
               <Text style={[{ color: colors.text60, fontSize: 12, fontWeight: "600" }, selectedAttributes.includes(attr.id) && { color: attrColor }]}>
                 {attr.icon} {attr.label}
@@ -77,7 +77,7 @@ const HeroMeta = () => {
               style={[chipBase, selectedPositions.includes(pos) && { backgroundColor: "rgba(139,92,246,0.12)", borderColor: colors.purple }]}
             >
               <Text style={[{ color: colors.text60, fontSize: 12, fontWeight: "600" }, selectedPositions.includes(pos) && { color: colors.purple }]}>
-                {pos}
+                Pos {pos}
               </Text>
             </TouchableOpacity>
           ))}

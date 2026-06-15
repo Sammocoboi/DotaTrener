@@ -19,8 +19,8 @@ class Command(BaseCommand):
         parser.add_argument(
             "--patch",
             type=str,
-            default="7.38",
-            help="Версия патча (по умолчанию 7.38)",
+            default="7.41c",
+            help="Версия патча (по умолчанию 7.41c)",
         )
         parser.add_argument(
             "--bracket",
@@ -47,6 +47,12 @@ class Command(BaseCommand):
             default=False,
             help="Не обновлять справочник героев",
         )
+        parser.add_argument(
+            "--min-games",
+            type=int,
+            default=300,
+            help="Минимум игр для статистики (по умолч. 300). Если меньше — fallback на нижние брекеты.",
+        )
 
     def handle(self, *args, **options):
         self.stdout.write("=== OpenDota Meta Sync ===")
@@ -63,6 +69,7 @@ class Command(BaseCommand):
             hero_ids=hero_ids,
             limit=options.get("limit"),
             ensure_heroes=not options["skip_heroes"],
+            min_games=options.get("min_games", 300),
             on_progress=self._on_progress,
         )
 
