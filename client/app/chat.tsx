@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -15,26 +15,6 @@ import { getToken } from "@/lib/token-storage";
 import { colors } from "@/lib/theme";
 import { API_BASE as API } from "@/lib/api";
 
-/* ─── Dark chat palette (STRATZ-inspired) ─── */
-const chat = {
-  bg: "#0F1923",
-  bgSurface: "#162231",
-  bgBubble: "#1C2D3F",
-  bgBubbleMe: "#EA580C",
-  bgInput: "#162231",
-  border: "#243447",
-  text: "#E2E8F0",
-  textSecondary: "#94A3B8",
-  textMuted: "#64748B",
-  orange: "#F97316",
-  orangeDark: "#EA580C",
-  green: "#10B981",
-  sendBg: "#F97316",
-  sendDisabled: "#1C2D3F",
-  typing: "#64748B",
-};
-
-/* ─── Types ─── */
 type Msg = {
   id: number;
   sender: string;
@@ -42,7 +22,6 @@ type Msg = {
   created_at: string;
 };
 
-/* ─── Helpers ─── */
 function formatTime(iso: string): string {
   const d = new Date(iso);
   const h = d.getHours().toString().padStart(2, "0");
@@ -58,10 +37,7 @@ function formatDate(iso: string): string {
   );
   if (diffDays === 0) return "Сегодня";
   if (diffDays === 1) return "Вчера";
-  return d.toLocaleDateString("ru-RU", {
-    day: "numeric",
-    month: "short",
-  });
+  return d.toLocaleDateString("ru-RU", { day: "numeric", month: "short" });
 }
 
 function initials(name: string): string {
@@ -81,8 +57,6 @@ function shouldShowDate(msgs: Msg[], idx: number): boolean {
   return prev.toDateString() !== cur.toDateString();
 }
 
-/* ─── Sub-components ─── */
-
 function Avatar({ name, size = 40 }: { name: string; size?: number }) {
   return (
     <View
@@ -90,7 +64,7 @@ function Avatar({ name, size = 40 }: { name: string; size?: number }) {
         width: size,
         height: size,
         borderRadius: size / 2,
-        backgroundColor: chat.orangeDark,
+        backgroundColor: colors.orange,
         alignItems: "center",
         justifyContent: "center",
       }}
@@ -108,70 +82,24 @@ function Avatar({ name, size = 40 }: { name: string; size?: number }) {
   );
 }
 
-function TypingIndicator() {
-  return (
-    <View
-      style={{
-        flexDirection: "row",
-        alignItems: "center",
-        paddingLeft: 56,
-        paddingVertical: 8,
-        gap: 6,
-      }}
-    >
-      <View
-        style={{
-          backgroundColor: chat.bgBubble,
-          borderRadius: 16,
-          paddingHorizontal: 14,
-          paddingVertical: 10,
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 4,
-        }}
-      >
-        {[0, 1, 2].map((i) => (
-          <View
-            key={i}
-            style={{
-              width: 6,
-              height: 6,
-              borderRadius: 3,
-              backgroundColor: chat.typing,
-              opacity: 0.5 + i * 0.15,
-            }}
-          />
-        ))}
-      </View>
-    </View>
-  );
-}
-
 function DateSeparator({ label }: { label: string }) {
   return (
-    <View
-      style={{
-        alignItems: "center",
-        paddingVertical: 12,
-      }}
-    >
+    <View style={{ alignItems: "center", paddingVertical: 12 }}>
       <View
         style={{
-          backgroundColor: chat.bgSurface,
+          backgroundColor: colors.bgRow,
           borderRadius: 10,
           paddingHorizontal: 12,
           paddingVertical: 4,
         }}
       >
-        <Text style={{ color: chat.textMuted, fontSize: 11, fontWeight: "500" }}>
+        <Text style={{ color: colors.text40, fontSize: 11, fontWeight: "500" }}>
           {label}
         </Text>
       </View>
     </View>
   );
 }
-
-/* ─── Main screen ─── */
 
 export default function ChatScreen() {
   const params = useLocalSearchParams<{ conv_id: string; token: string }>();
@@ -185,9 +113,7 @@ export default function ChatScreen() {
   const [loading, setLoading] = useState(true);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
-  const [isTyping, setIsTyping] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
-  const inputRef = useRef<TextInput>(null);
 
   const load = async () => {
     if (!conv_id) return;
@@ -202,7 +128,6 @@ export default function ChatScreen() {
       const myName = profRes?.data?.user?.username || "";
       setCurrentUser(myName);
 
-      // Determine the other user from messages
       const convData = convRes.data;
       if (convData.other_user) {
         setOtherUser(convData.other_user);
@@ -239,10 +164,6 @@ export default function ChatScreen() {
       setMessages((prev) => [...prev, r.data]);
       setText("");
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
-
-      // Simulate typing indicator from other side
-      setIsTyping(true);
-      setTimeout(() => setIsTyping(false), 2000 + Math.random() * 2000);
     } catch (e) {
       console.error(e);
     } finally {
@@ -253,13 +174,13 @@ export default function ChatScreen() {
   const canSend = text.trim().length > 0 && !sending;
 
   return (
-    <View style={{ flex: 1, backgroundColor: chat.bg }}>
-      {/* ─── HEADER ─── */}
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      {/* HEADER */}
       <View
         style={{
-          backgroundColor: chat.bgSurface,
+          backgroundColor: colors.bgCard,
           borderBottomWidth: 1,
-          borderBottomColor: chat.border,
+          borderBottomColor: colors.borderSoft,
           paddingTop: Platform.OS === "ios" ? 48 : 12,
           paddingBottom: 12,
           paddingHorizontal: 16,
@@ -272,28 +193,26 @@ export default function ChatScreen() {
             gap: 12,
           }}
         >
-          {/* Back button */}
           <Pressable
             onPress={() => router.back()}
             style={({ pressed }) => ({
               width: 36,
               height: 36,
               borderRadius: 18,
-              backgroundColor: chat.bgBubble,
+              backgroundColor: colors.bgRow,
               alignItems: "center",
               justifyContent: "center",
               opacity: pressed ? 0.7 : 1,
             })}
           >
-            <Text style={{ color: chat.text, fontSize: 16 }}>←</Text>
+            <Text style={{ color: colors.orange, fontSize: 16 }}>←</Text>
           </Pressable>
 
-          {/* Avatar + name */}
           <Avatar name={otherUser} size={40} />
           <View style={{ flex: 1 }}>
             <Text
               style={{
-                color: chat.text,
+                color: colors.text,
                 fontSize: 16,
                 fontWeight: "700",
               }}
@@ -307,36 +226,21 @@ export default function ChatScreen() {
                   width: 8,
                   height: 8,
                   borderRadius: 4,
-                  backgroundColor: chat.green,
+                  backgroundColor: colors.green,
                 }}
               />
-              <Text style={{ color: chat.textMuted, fontSize: 12 }}>
+              <Text style={{ color: colors.text40, fontSize: 12 }}>
                 В сети
               </Text>
             </View>
           </View>
-
-          {/* Optional: service badge */}
-          <View
-            style={{
-              backgroundColor: chat.bgBubble,
-              borderRadius: 8,
-              paddingHorizontal: 10,
-              paddingVertical: 4,
-            }}
-          >
-            <Text style={{ color: chat.orange, fontSize: 11, fontWeight: "600" }}>
-              Чат
-            </Text>
-          </View>
         </View>
       </View>
 
-      {/* ─── MESSAGES ─── */}
+      {/* MESSAGES */}
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
       >
         <ScrollView
           ref={scrollRef}
@@ -357,10 +261,8 @@ export default function ChatScreen() {
                 paddingTop: 80,
               }}
             >
-              <ActivityIndicator size="large" color={chat.orange} />
-              <Text
-                style={{ color: chat.textMuted, fontSize: 13, marginTop: 12 }}
-              >
+              <ActivityIndicator size="large" color={colors.orange} />
+              <Text style={{ color: colors.text60, fontSize: 13, marginTop: 12 }}>
                 Загрузка сообщений...
               </Text>
             </View>
@@ -375,24 +277,13 @@ export default function ChatScreen() {
                 paddingTop: 80,
               }}
             >
-              <View
-                style={{
-                  width: 64,
-                  height: 64,
-                  borderRadius: 32,
-                  backgroundColor: chat.bgBubble,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  marginBottom: 16,
-                }}
-              >
-                <Avatar name={otherUser} size={64} />
-              </View>
+              <Avatar name={otherUser} size={64} />
               <Text
                 style={{
-                  color: chat.text,
+                  color: colors.text,
                   fontSize: 16,
                   fontWeight: "600",
+                  marginTop: 16,
                   marginBottom: 4,
                 }}
               >
@@ -400,7 +291,7 @@ export default function ChatScreen() {
               </Text>
               <Text
                 style={{
-                  color: chat.textMuted,
+                  color: colors.text60,
                   fontSize: 13,
                   textAlign: "center",
                   paddingHorizontal: 40,
@@ -417,9 +308,7 @@ export default function ChatScreen() {
 
             return (
               <View key={m.id}>
-                {showDate && (
-                  <DateSeparator label={formatDate(m.created_at)} />
-                )}
+                {showDate && <DateSeparator label={formatDate(m.created_at)} />}
                 <View
                   style={{
                     flexDirection: "row",
@@ -429,16 +318,12 @@ export default function ChatScreen() {
                     gap: 8,
                   }}
                 >
-                  {/* Other user avatar */}
                   {!isMe && <Avatar name={m.sender} size={28} />}
 
-                  {/* Bubble */}
                   <View
                     style={{
-                      backgroundColor: isMe
-                        ? chat.bgBubbleMe
-                        : chat.bgBubble,
-                      borderRadius: isMe ? 18 : 18,
+                      backgroundColor: isMe ? colors.orange : colors.bgRow,
+                      borderRadius: 18,
                       borderBottomRightRadius: isMe ? 4 : 18,
                       borderBottomLeftRadius: isMe ? 18 : 4,
                       paddingVertical: 10,
@@ -446,12 +331,11 @@ export default function ChatScreen() {
                       maxWidth: "72%",
                     }}
                   >
-                    {/* Sender label in group chats */}
                     {!isMe && messages[idx - 1]?.sender === m.sender ? null : (
                       !isMe && (
                         <Text
                           style={{
-                            color: chat.orange,
+                            color: colors.orange,
                             fontSize: 11,
                             fontWeight: "700",
                             marginBottom: 3,
@@ -464,7 +348,7 @@ export default function ChatScreen() {
 
                     <Text
                       style={{
-                        color: isMe ? "#FFFFFF" : chat.text,
+                        color: isMe ? "#FFFFFF" : colors.text,
                         fontSize: 14,
                         lineHeight: 20,
                       }}
@@ -476,7 +360,7 @@ export default function ChatScreen() {
                       style={{
                         color: isMe
                           ? "rgba(255,255,255,0.6)"
-                          : chat.textMuted,
+                          : colors.text40,
                         fontSize: 10,
                         marginTop: 4,
                         alignSelf: "flex-end",
@@ -489,16 +373,14 @@ export default function ChatScreen() {
               </View>
             );
           })}
-
-          {isTyping && <TypingIndicator />}
         </ScrollView>
 
-        {/* ─── INPUT BAR ─── */}
+        {/* INPUT BAR */}
         <View
           style={{
-            backgroundColor: chat.bgSurface,
+            backgroundColor: colors.bgCard,
             borderTopWidth: 1,
-            borderTopColor: chat.border,
+            borderTopColor: colors.borderSoft,
             paddingHorizontal: 12,
             paddingVertical: 10,
             paddingBottom: Platform.OS === "ios" ? 28 : 10,
@@ -511,14 +393,13 @@ export default function ChatScreen() {
               gap: 10,
             }}
           >
-            {/* Text input */}
             <View
               style={{
                 flex: 1,
-                backgroundColor: chat.bgBubble,
+                backgroundColor: colors.bgRow,
                 borderRadius: 22,
                 borderWidth: 1,
-                borderColor: chat.border,
+                borderColor: colors.border,
                 minHeight: 44,
                 maxHeight: 100,
                 flexDirection: "row",
@@ -528,10 +409,9 @@ export default function ChatScreen() {
               }}
             >
               <TextInput
-                ref={inputRef}
                 style={{
                   flex: 1,
-                  color: chat.text,
+                  color: colors.text,
                   fontSize: 15,
                   lineHeight: 20,
                   padding: 0,
@@ -540,7 +420,7 @@ export default function ChatScreen() {
                     : {}),
                 }}
                 placeholder="Написать сообщение..."
-                placeholderTextColor={chat.textMuted}
+                placeholderTextColor={colors.text40}
                 value={text}
                 onChangeText={setText}
                 multiline
@@ -553,7 +433,6 @@ export default function ChatScreen() {
               />
             </View>
 
-            {/* Send button */}
             <Pressable
               onPress={send}
               disabled={!canSend}
@@ -561,7 +440,7 @@ export default function ChatScreen() {
                 width: 44,
                 height: 44,
                 borderRadius: 22,
-                backgroundColor: canSend ? chat.sendBg : chat.sendDisabled,
+                backgroundColor: canSend ? colors.orange : colors.bgElevated,
                 alignItems: "center",
                 justifyContent: "center",
                 opacity: pressed && canSend ? 0.8 : 1,
@@ -572,7 +451,7 @@ export default function ChatScreen() {
               ) : (
                 <Text
                   style={{
-                    color: canSend ? "#FFFFFF" : chat.textMuted,
+                    color: canSend ? "#FFFFFF" : colors.text40,
                     fontSize: 20,
                     lineHeight: 22,
                   }}

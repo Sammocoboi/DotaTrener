@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Hero, Match, Review, Mistake, MistakeCategory, Coach, CoachService, CoachReview, CoachVideo
+from .models import Hero, Match, Review, Mistake, MistakeCategory, Coach, CoachService, CoachReview, CoachVideo, Subscription
 
 
 class HeroSerializer(serializers.ModelSerializer):
@@ -121,3 +121,18 @@ class CoachDetailSerializer(serializers.ModelSerializer):
         from django.db.models import Avg
         result = obj.coach_reviews.aggregate(avg=Avg('rating'))
         return round(result['avg'], 1) if result['avg'] else None
+
+
+class SubscriptionSerializer(serializers.ModelSerializer):
+    is_expired = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Subscription
+        fields = ['id', 'is_active', 'plan', 'started_at', 'expires_at', 'is_expired']
+        read_only_fields = ['id', 'is_active', 'started_at', 'expires_at']
+
+    def get_is_expired(self, obj):
+        if not obj.expires_at:
+            return True
+        from django.utils import timezone
+        return obj.expires_at < timezone.now()

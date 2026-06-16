@@ -181,6 +181,27 @@ class CoachApplication(models.Model):
         ordering = ["-created_at"]
 
 
+class Subscription(models.Model):
+    """Подписка тренера (ежемесячная)"""
+    PLAN_CHOICES = [
+        ("monthly", "Ежемесячная"),
+    ]
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="subscription")
+    is_active = models.BooleanField(default=False)
+    plan = models.CharField(max_length=20, choices=PLAN_CHOICES, default="monthly")
+    started_at = models.DateTimeField(null=True, blank=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        status = "активна" if self.is_active else "неактивна"
+        return f"Subscription: {self.user.username} ({status})"
+
+    class Meta:
+        verbose_name = "Подписка"
+        verbose_name_plural = "Подписки"
+
+
 class Hero(models.Model):
     """Справочник героев (заполняется автоматически через Steam/OpenDota API)"""
     steam_id = models.PositiveIntegerField(unique=True, help_text="Hero ID из Steam API")

@@ -44,9 +44,7 @@ export default function ProfileScreen() {
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [registering, setRegistering] = useState(false);
-  const [appStatus, setAppStatus] = useState<{ id: number; status: string; message: string; created_at: string; reviewed_at?: string } | null>(null);
-  const [appMessage, setAppMessage] = useState("");
+  const [subStatus, setSubStatus] = useState<{ is_active: boolean; expires_at: string; is_expired: boolean } | null>(null);
   const [editName, setEditName] = useState("");
   const [socialLinks, setSocialLinks] = useState<Record<string, string>>({});
   const [newSocialKey, setNewSocialKey] = useState("");
@@ -123,13 +121,13 @@ export default function ProfileScreen() {
     setLoading(true);
     Promise.all([
       axios.get(`${API}/profile/`, { headers }),
-      axios.get(`${API}/my-application/`, { headers }).catch(() => ({ data: { application: null } })),
+      axios.get(`${API}/subscription/`, { headers }).catch(() => ({ data: { subscription: null } })),
     ])
-      .then(([pRes, aRes]) => {
+      .then(([pRes, sRes]) => {
         setProfile(pRes.data);
         setEditName(pRes.data.user.username);
         setSocialLinks(pRes.data.coach?.social_links || {});
-        setAppStatus(aRes.data?.application || null);
+        setSubStatus(sRes.data?.subscription || null);
       })
       .catch((e) => setError(e?.response?.data?.error || "Ошибка загрузки"))
       .finally(() => setLoading(false));
@@ -164,21 +162,6 @@ export default function ProfileScreen() {
       document.removeEventListener("mouseup", onUp);
     };
   }, [cropVisible]);
-
-  const handleBecomeCoach = async () => {
-    setRegistering(true);
-    try {
-      const res = await axios.post(`${API}/become-coach/`, { message: appMessage }, { headers });
-      if (res.data.ok) {
-        setAppStatus(res.data.application);
-        setAppMessage("");
-      }
-    } catch (e: any) {
-      setError(e?.response?.data?.error || "Ошибка регистрации тренером");
-    } finally {
-      setRegistering(false);
-    }
-  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -310,46 +293,34 @@ export default function ProfileScreen() {
             )}
 
             <Section title="ТРЕНЕР">
-              {profile.player.is_coach && profile.coach ? (
+              {profile.player.is_coach && profile.coach && subStatus?.is_active ? (
                 <>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                    <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: colors.green }} />
+                    <Text style={{ color: colors.green, fontSize: 12, fontWeight: "600" }}>Подписка активна</Text>
+                  </View>
+                  {subStatus.expires_at && (
+                    <Row label="Действует до" value={
+                      new Date(subStatus.expires_at).toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" })
+                    } />
+                  )}
                   <Row label="Рейтинг" value={`${profile.coach.rating.toFixed(1)} / 5.0`} />
-                  <Row label="MMR на проверке" value={String(profile.coach.mmr_verified)} />
                   <Row label="Специализация" value={profile.coach.specialization || "—"} />
-                  <Row label="Bio" value={profile.coach.bio || "—"} />
                   <Pressable
                     onPress={() => router.push({ pathname: "my-services" as any, params: { token } })}
-                    style={{ backgroundColor: colors.bgElevated, padding: 10, borderRadius: 6, marginTop: 8, alignItems: "center" }}
+                    style={{ backgroundColor: colors.orange, padding: 10, borderRadius: 6, marginTop: 8, alignItems: "center" }}
                   >
-                    <Text style={{ color: colors.orange, fontSize: 12, fontWeight: "600" }}>Мои услуги</Text>
+                    <Text style={{ color: "#FFFFFF", fontSize: 12, fontWeight: "600" }}>Мои услуги</Text>
                   </Pressable>
-                </>
-              ) : appStatus ? (
-                <>
-                  <Text style={{ color: colors.orange, fontSize: 12 }}>Заявка отправлена</Text>
-                  <Text style={{ color: colors.text40, fontSize: 11, marginTop: 2 }}>
-                    Статус: {
-                      appStatus.status === "pending" ? "На рассмотрении" :
-                      appStatus.status === "accepted" ? "Принята" :
-                      appStatus.status === "rejected" ? "Отклонена" : appStatus.status
-                    }
-                  </Text>
-                  {appStatus.message ? <Text style={{ color: colors.text60, fontSize: 10, marginTop: 4, fontStyle: "italic" }}>"{appStatus.message}"</Text> : null}
                 </>
               ) : (
-                <>
-                  <Text style={{ color: colors.text40, fontSize: 12, marginBottom: 8 }}>Ты ещё не тренер. Отправь заявку!</Text>
-                  <TextInput
-                    style={{ backgroundColor: colors.bgRow, color: colors.text, fontSize: 12, padding: 8, borderRadius: 6, marginBottom: 8, minHeight: 60, borderWidth: 1, borderColor: colors.border }}
-                    placeholder="Расскажи почему хочешь стать тренером (опыт, ранг, специализация)..."
-                    placeholderTextColor={colors.text40}
-                    multiline
-                    value={appMessage}
-                    onChangeText={setAppMessage}
-                  />
-                  <Pressable onPress={handleBecomeCoach} disabled={registering || !appMessage.trim()} style={{ backgroundColor: appMessage.trim() ? colors.green : colors.bgElevated, padding: 12, borderRadius: 8, alignItems: "center" }}>
-                    <Text style={{ color: appMessage.trim() ? colors.text : colors.text40, fontWeight: "600" }}>{registering ? "Отправка..." : "Отправить заявку"}</Text>
-                  </Pressable>
-                </>
+                <Pressable
+                  onPress={() => router.push({ pathname: "subscription" as any, params: { token } })}
+                  style={{ backgroundColor: colors.bgRow, padding: 12, borderRadius: 8, borderWidth: 1, borderColor: colors.orange, borderStyle: "dashed" }}
+                >
+                  <Text style={{ color: colors.text, fontSize: 13, fontWeight: "600", marginBottom: 4 }}>Стань тренером</Text>
+                  <Text style={{ color: colors.text60, fontSize: 11 }}>Оформи подписку и начни выкладывать услуги</Text>
+                </Pressable>
               )}
             </Section>
 
@@ -400,14 +371,6 @@ export default function ProfileScreen() {
                   Stratz API токен: {profile.player.stratz_token ? "Установлен" : "Не установлен"}
                 </Text>
               </Pressable>
-              {profile.user.is_staff && (
-                <Pressable
-                  onPress={() => router.push({ pathname: "admin-applications" as any, params: { token } })}
-                  style={{ backgroundColor: colors.bgRow, padding: 12, borderRadius: 8 }}
-                >
-                  <Text style={{ color: colors.orange }}>Заявки тренеров (админ)</Text>
-                </Pressable>
-              )}
             </Section>
           </>
         )}

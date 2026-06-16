@@ -9,11 +9,11 @@ from django.shortcuts import get_object_or_404
 logger = logging.getLogger(__name__)
 
 from django.utils import timezone
-from .models import Match, Review, Mistake, Hero, Player, Coach, CoachService, CoachApplication, Conversation, Message, CoachReview, CoachVideo
+from .models import Match, Review, Mistake, Hero, Player, Coach, CoachService, CoachApplication, Conversation, Message, CoachReview, CoachVideo, Subscription
 from .serializers import (
     MatchSerializer, ReviewListSerializer, ReviewDetailSerializer, MistakeSerializer,
     CoachListSerializer, CoachDetailSerializer, CoachServiceSerializer,
-    CoachReviewSerializer, CoachVideoSerializer,
+    CoachReviewSerializer, CoachVideoSerializer, SubscriptionSerializer,
 )
 from .serializers import HeroSerializer
 class MatchViewSet(viewsets.ModelViewSet):
@@ -487,6 +487,53 @@ def become_coach(request):
             "message": application.message,
             "created_at": application.created_at,
         },
+    })
+
+
+@api_view(["POST"])
+@perm([permissions.IsAuthenticated])
+def subscribe(request):
+    """Оформить подписку тренера (заглушка — сразу активирует на 30 дней)"""
+    player, _ = Player.objects.get_or_create(user=request.user)
+    if not player.steam_account_id:
+        return Response({"error": "Сначала привяжи Steam аккаунт"}, status=400)
+
+    sub, created = Subscription.objects.get_or_create(user=request.user)
+
+    if sub.is_active and sub.expires_at and sub.expires_at > timezone.now():
+        return Response({"error": "Подписка уже активна"}, status=400)
+
+    sub.is_active = True
+    sub.plan = "monthly"
+    sub.started_at = timezone.now()
+    sub.expires_at = timezone.now() + timezone.timedelta(days=30)
+    sub.save()
+
+    player.is_coach = True
+    player.save(update_fields=["is_coach"])
+
+    Coach.objects.get_or_create(user=request.user)
+
+    return Response({
+        "ok": True,
+        "subscription": SubscriptionSerializer(sub).data,
+    })
+
+
+@api_view(["GET"])
+@perm([permissions.IsAuthenticated])
+def subscription_status(request):
+    """Статус подписки"""
+    sub = Subscription.objects.filter(user=request.user).first()
+    if not sub:
+        return Response({"subscription": None})
+
+    if sub.expires_at and sub.expires_at < timezone.now():
+        sub.is_active = False
+        sub.save(update_fields=["is_active"])
+
+    return Response({
+        "subscription": SubscriptionSerializer(sub).data,
     })
 
 

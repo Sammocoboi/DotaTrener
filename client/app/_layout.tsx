@@ -5,5 +5,5 @@ import { initToken } from '@/lib/token-storage';
 
 export default function Layout() {
   useEffect(() => { initToken(); }, []);
-  return <Stack screenOptions={{ contentStyle: { backgroundColor: colors.bg } }} />;
+  return <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }} />;
 }
