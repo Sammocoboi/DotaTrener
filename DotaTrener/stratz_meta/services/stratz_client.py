@@ -499,11 +499,14 @@ class StratzClient:
             if source:
                 win_count = int(source.get("winCount") or 0)
                 match_count = int(source.get("matchCount") or 0)
+                fallback_pick = pick_rate
+                if fallback_pick == 0.0 and match_count > 0 and batch_match_total > 0:
+                    fallback_pick = round(match_count / batch_match_total * 100, 2)
                 result[hid] = _meta_from_totals(
                     win_count,
                     match_count,
                     roles=roles,
-                    pick_rate=pick_rate,
+                    pick_rate=fallback_pick,
                     performance=performance,
                 )
                 continue
@@ -521,20 +524,26 @@ class StratzClient:
             if pos_rows:
                 win_total = sum(int(p.get("winCount") or 0) for p in pos_rows)
                 match_total = sum(int(p.get("matchCount") or 0) for p in pos_rows)
+                pos_pick = pick_rate
+                if pos_pick == 0.0 and match_total > 0 and batch_match_total > 0:
+                    pos_pick = round(match_total / batch_match_total * 100, 2)
                 if match_total:
                     result[hid] = _meta_from_totals(
                         win_total,
                         match_total,
                         roles=roles,
-                        pick_rate=pick_rate,
+                        pick_rate=pos_pick,
                         performance=performance,
                     )
                     continue
 
             fallback = self._fetch_meta_win_day(hid, rank)
             if fallback:
+                fb_pick = pick_rate
+                if fb_pick == 0.0 and fallback.get("games_played", 0) > 0 and batch_match_total > 0:
+                    fb_pick = round(fallback["games_played"] / batch_match_total * 100, 2)
                 fallback["roles"] = roles or fallback.get("roles", {})
-                fallback["pick_rate"] = pick_rate or fallback.get("pick_rate", 0.0)
+                fallback["pick_rate"] = fb_pick or fallback.get("pick_rate", 0.0)
                 fallback.update(performance)
                 result[hid] = fallback
 

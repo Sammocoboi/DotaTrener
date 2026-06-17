@@ -1,7 +1,8 @@
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import User
-from coaching.models import Player, Coach, CoachService
+from coaching.models import Player, Coach, CoachService, Subscription
 from django.utils import timezone
+from datetime import timedelta
 
 COACHES = [
     {
@@ -102,6 +103,16 @@ class Command(BaseCommand):
                 coach.mmr_verified = data["mmr_verified"]
                 coach.rating = 5.0
                 coach.save()
+
+            Subscription.objects.update_or_create(
+                user=user,
+                defaults={
+                    "is_active": True,
+                    "plan": "monthly",
+                    "started_at": timezone.now(),
+                    "expires_at": timezone.now() + timedelta(days=365),
+                },
+            )
 
             for svc_data in data["services"]:
                 CoachService.objects.get_or_create(

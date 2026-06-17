@@ -3,7 +3,7 @@ import { View, Text, ScrollView, Pressable, TextInput, Image, Platform, Modal } 
 import { router, useLocalSearchParams } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import axios from "axios";
-import { getToken } from "@/lib/token-storage";
+import { getToken, saveToken, clearToken } from "@/lib/token-storage";
 import { colors } from "@/lib/theme";
 import { rankIconUrl } from "@/lib/rank-label";
 import { API_BASE as API, API_ROOT } from "@/lib/api";
@@ -40,7 +40,34 @@ const CROP_SIZE = 256;
 
 export default function ProfileScreen() {
   const params = useLocalSearchParams<{ token: string }>();
-  const token = params.token || getToken();
+  const [token, setToken] = useState<string | null>(null);
+
+  useEffect(() => {
+    const urlToken = params.token || getToken();
+    if (urlToken) {
+      setToken(urlToken);
+      return;
+    }
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      const hash = window.location.hash;
+      if (hash && hash.length > 1) {
+        const urlParams = new URLSearchParams(hash.substring(1));
+        const ht = urlParams.get("token");
+        const hs = urlParams.get("steam_id");
+        if (ht) {
+          saveToken(ht, hs || undefined);
+          setToken(ht);
+          window.history.replaceState({}, "", window.location.pathname);
+          return;
+        }
+      }
+    }
+    if (!getToken()) {
+      router.replace("/login");
+    } else {
+      setToken(getToken());
+    }
+  }, []);
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -116,12 +143,12 @@ export default function ProfileScreen() {
     }
   };
 
-  const loadAll = () => {
-    if (!token) return;
+  const loadAll = (tok: string) => {
     setLoading(true);
+    const h = { Authorization: `Token ${tok}` };
     Promise.all([
-      axios.get(`${API}/profile/`, { headers }),
-      axios.get(`${API}/subscription/`, { headers }).catch(() => ({ data: { subscription: null } })),
+      axios.get(`${API}/profile/`, { headers: h }),
+      axios.get(`${API}/subscription/`, { headers: h }).catch(() => ({ data: { subscription: null } })),
     ])
       .then(([pRes, sRes]) => {
         setProfile(pRes.data);
@@ -133,7 +160,7 @@ export default function ProfileScreen() {
       .finally(() => setLoading(false));
   };
 
-  useEffect(() => { loadAll(); }, [token]);
+  useEffect(() => { if (token) loadAll(token); }, [token]);
 
   useEffect(() => {
     if (!cropVisible) return;
@@ -205,19 +232,34 @@ export default function ProfileScreen() {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      await axios.post(`${API}/logout/`, {}, { headers });
+    } catch {}
+    clearToken();
+    router.replace("/login");
+  };
+
+  const handleUnbindSteam = async () => {
+    try {
+      await axios.post(`${API}/unbind-steam/`, {}, { headers });
+      setProfile((prev) => prev ? {
+        ...prev,
+        player: { ...prev.player, steam_account_id: null, steam_id_64: null },
+        rank: null,
+        match_stats: null,
+      } : prev);
+    } catch (e: any) {
+      setError(e?.response?.data?.error || "Ошибка отвязки Steam");
+    }
+  };
+
   if (loading) return <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colors.bg }}><Text style={{ color: colors.text60 }}>Загрузка...</Text></View>;
   if (!token) return (
     <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 16, backgroundColor: colors.bg }}>
-      <Text style={{ color: colors.text60, marginBottom: 8 }}>Войдите через Steam</Text>
-      <Pressable onPress={() => {
-        const url = `${API_ROOT}/api/auth/steam/login/?next=profile`;
-        if (Platform.OS === "web") {
-          window.location.href = url;
-        } else {
-          WebBrowser.openAuthSessionAsync(url, "client://auth-callback");
-        }
-      }} style={{ backgroundColor: colors.orange, padding: 12, borderRadius: 8 }}>
-        <Text style={{ color: colors.text, fontWeight: "600" }}>Войти через Steam</Text>
+      <Text style={{ color: colors.text60, marginBottom: 12 }}>Войдите в аккаунт</Text>
+      <Pressable onPress={() => router.replace("/login")} style={{ backgroundColor: colors.orange, padding: 12, borderRadius: 8 }}>
+        <Text style={{ color: colors.text, fontWeight: "600" }}>Войти</Text>
       </Pressable>
     </View>
   );
@@ -275,20 +317,34 @@ export default function ProfileScreen() {
             <Section title="STEAM">
               <Row label="Username" value={profile.user.username} />
               <Row label="Steam ID" value={profile.player.steam_account_id ? String(profile.player.steam_account_id) : "Не привязан"} />
+              {!profile.player.steam_account_id ? (
+                <Pressable
+                  onPress={() => {
+                    const url = `${API_ROOT}/api/auth/steam/login/?next=profile`;
+                    if (Platform.OS === "web") {
+                      window.location.href = url;
+                    } else {
+                      WebBrowser.openAuthSessionAsync(url, "client://auth-callback");
+                    }
+                  }}
+                  style={{ backgroundColor: colors.orange, padding: 10, borderRadius: 8, marginTop: 8, alignItems: "center" }}
+                >
+                  <Text style={{ color: "#FFFFFF", fontSize: 13, fontWeight: "600" }}>Привязать Steam</Text>
+                </Pressable>
+              ) : null}
             </Section>
 
             {profile.rank && (
               <Section title="РАНГ">
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
                   {rankIconUrl(profile.rank.season_rank) ? (
-                    <Image source={{ uri: rankIconUrl(profile.rank.season_rank) }} style={{ width: 48, height: 48 }} />
+                    <Image source={{ uri: rankIconUrl(profile.rank.season_rank) }} style={{ width: 56, height: 56 }} />
                   ) : null}
-                  <View style={{ flex: 1 }}>
-                    <Row label="Ранг" value={profile.rank.season_rank_label} />
-                    <Row label="Rank ID" value={String(profile.rank.season_rank)} />
-                    {profile.rank.leaderboard_rank && <Row label="Leaderboard" value={`#${profile.rank.leaderboard_rank}`} />}
-                  </View>
+                  <Text style={{ color: colors.text, fontSize: 16, fontWeight: "600" }}>{profile.rank.season_rank_label}</Text>
                 </View>
+                {profile.rank.leaderboard_rank ? (
+                  <Text style={{ color: colors.text60, fontSize: 12, marginTop: 4 }}>Leaderboard: #{profile.rank.leaderboard_rank}</Text>
+                ) : null}
               </Section>
             )}
 
@@ -370,6 +426,20 @@ export default function ProfileScreen() {
                 <Text style={{ color: profile.player.stratz_token ? colors.greenLight : colors.text60 }}>
                   Stratz API токен: {profile.player.stratz_token ? "Установлен" : "Не установлен"}
                 </Text>
+              </Pressable>
+              {profile.player.steam_account_id ? (
+                <Pressable
+                  onPress={handleUnbindSteam}
+                  style={{ backgroundColor: colors.bgRow, padding: 12, borderRadius: 8, marginBottom: 8, borderWidth: 1, borderColor: colors.red }}
+                >
+                  <Text style={{ color: colors.red }}>Отвязать Steam</Text>
+                </Pressable>
+              ) : null}
+              <Pressable
+                onPress={handleLogout}
+                style={{ backgroundColor: colors.red, padding: 12, borderRadius: 8, marginTop: 4, alignItems: "center" }}
+              >
+                <Text style={{ color: "#fff", fontSize: 13, fontWeight: "600" }}>Выйти из аккаунта</Text>
               </Pressable>
             </Section>
           </>

@@ -110,6 +110,7 @@ export default function ChatScreen() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [currentUser, setCurrentUser] = useState("");
   const [otherUser, setOtherUser] = useState("Собеседник");
+  const [otherUserId, setOtherUserId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
@@ -129,8 +130,20 @@ export default function ChatScreen() {
       setCurrentUser(myName);
 
       const convData = convRes.data;
-      if (convData.other_user) {
-        setOtherUser(convData.other_user);
+      const myId = profRes?.data?.user?.id;
+
+      if (convData.coach && convData.coach.id && myId && convData.coach.id !== myId) {
+        setOtherUser(convData.coach.username);
+        setOtherUserId(convData.coach.id);
+      } else if (convData.user && convData.user.id && myId && convData.user.id !== myId) {
+        setOtherUser(convData.user.username);
+        setOtherUserId(convData.user.id);
+      } else if (convData.coach?.username) {
+        setOtherUser(convData.coach.username);
+        setOtherUserId(convData.coach.id || null);
+      } else if (convData.user?.username) {
+        setOtherUser(convData.user.username);
+        setOtherUserId(convData.user.id || null);
       } else if (convRes.data.messages?.length > 0) {
         const other = convRes.data.messages.find(
           (m: Msg) => m.sender !== myName
@@ -208,18 +221,19 @@ export default function ChatScreen() {
             <Text style={{ color: colors.orange, fontSize: 16 }}>←</Text>
           </Pressable>
 
-          <Avatar name={otherUser} size={40} />
-          <View style={{ flex: 1 }}>
-            <Text
-              style={{
-                color: colors.text,
-                fontSize: 16,
-                fontWeight: "700",
-              }}
-              numberOfLines={1}
-            >
-              {otherUser}
-            </Text>
+          <Pressable onPress={() => otherUserId && router.push({ pathname: "coach-detail" as any, params: { coach_id: String(otherUserId) } })} style={{ flexDirection: "row", alignItems: "center", gap: 12, flex: 1 }}>
+            <Avatar name={otherUser} size={40} />
+            <View style={{ flex: 1 }}>
+              <Text
+                style={{
+                  color: colors.text,
+                  fontSize: 16,
+                  fontWeight: "700",
+                }}
+                numberOfLines={1}
+              >
+                {otherUser}
+              </Text>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 }}>
               <View
                 style={{
@@ -234,6 +248,7 @@ export default function ChatScreen() {
               </Text>
             </View>
           </View>
+          </Pressable>
         </View>
       </View>
 

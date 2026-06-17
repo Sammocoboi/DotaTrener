@@ -10,7 +10,7 @@ const HeroCard = ({ hero }: Props) => {
         <View style={styles.card}>
             <Text style={styles.name}>{hero.localized_name}</Text>
             <Text style={styles.attr}>Атрибут: {hero.primary_attr}</Text>
-            <Text style={styles.roles}>Роли: {hero.roles?.join(', ') || 'нет'}</Text>
+            <Text style={styles.roles}>Роли: {Array.isArray(hero.roles) ? hero.roles.join(', ') : (hero.roles && typeof hero.roles === 'object' ? Object.keys(hero.roles).join(', ') : 'нет')}</Text>
         </View>
     );
 };

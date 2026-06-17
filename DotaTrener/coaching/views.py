@@ -365,6 +365,30 @@ def profile(request):
     })
 
 
+@api_view(["POST"])
+@perm([permissions.IsAuthenticated])
+def logout_view(request):
+    """Удалить токен — выход из аккаунта"""
+    try:
+        request.user.auth_token.delete()
+    except Exception:
+        pass
+    return Response({"ok": True})
+
+
+@api_view(["POST"])
+@perm([permissions.IsAuthenticated])
+def unbind_steam(request):
+    """Отвязать Steam аккаунт"""
+    player = getattr(request.user, "player_profile", None)
+    if not player:
+        return Response({"error": "Player профиль не найден"}, status=400)
+    player.steam_account_id = None
+    player.steam_id_64 = None
+    player.save(update_fields=["steam_account_id", "steam_id_64"])
+    return Response({"ok": True})
+
+
 def _rank_label(season_rank: int) -> str:
     MEDALS = [
         (1, "Herald"), (2, "Guardian"), (3, "Crusader"),

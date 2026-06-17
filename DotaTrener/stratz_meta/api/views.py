@@ -34,6 +34,7 @@ class HeroMetaViewSet(viewsets.ReadOnlyModelViewSet):
         hero_name = self.request.query_params.get('hero')
         min_winrate = self.request.query_params.get('min_wr')
         source = self.request.query_params.get('source')
+        min_games = self.request.query_params.get('min_games', '5')
         
         if patch:
             qs = qs.filter(patch__version=patch)
@@ -48,6 +49,8 @@ class HeroMetaViewSet(viewsets.ReadOnlyModelViewSet):
             qs = qs.filter(win_rate__gte=float(min_winrate))
         if source:
             qs = qs.filter(source=source)
+        if min_games:
+            qs = qs.filter(games_played__gte=int(min_games))
             
         return qs.order_by('-win_rate')
 
@@ -60,8 +63,11 @@ class HeroMetaViewSet(viewsets.ReadOnlyModelViewSet):
         
         qs = HeroMeta.objects.filter(patch=current_patch).select_related('hero')
         source = request.query_params.get('source')
+        min_games = request.query_params.get('min_games', '5')
         if source:
             qs = qs.filter(source=source)
+        if min_games:
+            qs = qs.filter(games_played__gte=int(min_games))
         qs = qs.order_by('-win_rate')
         
         page = self.paginate_queryset(qs)

@@ -219,6 +219,7 @@ class OpenDotaClient:
 
         image_url = f"https://cdn.cloudflare.steamstatic.com/apps/dota2/images/dota_react/heroes/{short_name}.png"
 
+
         return {
             "id": hero_id,
             "name": internal_name,

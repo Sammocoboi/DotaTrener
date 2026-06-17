@@ -1,6 +1,8 @@
+import json
 import urllib.parse
 import requests
 from django.conf import settings
+from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from django.http import JsonResponse, HttpResponseRedirect
 from django.views import View
@@ -77,10 +79,16 @@ def _get_or_create_user(steam_id: str) -> tuple[User, bool]:
 class SteamLoginView(View):
     def get(self, request):
         next_page = request.GET.get("next", "")
+        return_to = request.GET.get("return_to", "")
         site_url = getattr(settings, "SITE_URL", "http://localhost:8000")
         callback = f"{site_url}/api/auth/steam/callback/"
+        params = []
         if next_page:
-            callback += f"?next={urllib.parse.quote(next_page)}"
+            params.append(f"next={urllib.parse.quote(next_page)}")
+        if return_to:
+            params.append(f"return_to={urllib.parse.quote(return_to)}")
+        if params:
+            callback += "?" + "&".join(params)
         login_url = _build_steam_login_url(callback)
         return HttpResponseRedirect(login_url)
 
@@ -104,6 +112,7 @@ class SteamCallbackView(View):
         token, _ = Token.objects.get_or_create(user=user)
 
         next_page = request.GET.get("next", "")
+        return_to = request.GET.get("return_to", "")
         site_url = getattr(settings, "SITE_URL", "http://localhost:8000")
         redirect_url = (
             f"{site_url}/auth-callback/"
@@ -113,4 +122,91 @@ class SteamCallbackView(View):
         )
         if next_page:
             redirect_url += f"&next={urllib.parse.quote(next_page)}"
+        if return_to:
+            redirect_url += f"&return_to={urllib.parse.quote(return_to)}"
         return HttpResponseRedirect(redirect_url)
+
+
+@csrf_exempt
+def register_view(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405)
+
+    try:
+        body = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    email = (body.get("email") or "").strip().lower()
+    username = (body.get("username") or "").strip()
+    password = body.get("password") or ""
+
+    if not email or not username or not password:
+        return JsonResponse({"error": "Email, имя и пароль обязательны"}, status=400)
+
+    if len(password) < 6:
+        return JsonResponse({"error": "Пароль минимум 6 символов"}, status=400)
+
+    if User.objects.filter(email=email).exists():
+        return JsonResponse({"error": "Email уже зарегистрирован"}, status=400)
+
+    if User.objects.filter(username=username).exists():
+        return JsonResponse({"error": "Имя пользователя уже занято"}, status=400)
+
+    user = User.objects.create_user(username=username, email=email, password=password)
+
+    from coaching.models import Player
+    Player.objects.create(user=user)
+
+    from rest_framework.authtoken.models import Token
+    token, _ = Token.objects.get_or_create(user=user)
+
+    return JsonResponse({
+        "token": token.key,
+        "user_id": user.id,
+        "username": user.username,
+        "email": user.email,
+    })
+
+
+@csrf_exempt
+def login_view(request):
+    if request.method != "POST":
+        return JsonResponse({"error": "POST required"}, status=405)
+
+    try:
+        body = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON"}, status=400)
+
+    email = (body.get("email") or "").strip().lower()
+    password = body.get("password") or ""
+
+    if not email or not password:
+        return JsonResponse({"error": "Email и пароль обязательны"}, status=400)
+
+    try:
+        user_obj = User.objects.get(email=email)
+    except User.DoesNotExist:
+        return JsonResponse({"error": "Неверный email или пароль"}, status=400)
+
+    user = authenticate(username=user_obj.username, password=password)
+    if user is None:
+        return JsonResponse({"error": "Неверный email или пароль"}, status=400)
+
+    from rest_framework.authtoken.models import Token
+    token, _ = Token.objects.get_or_create(user=user)
+
+    steam_id = None
+    try:
+        steam_id = user.player_profile.steam_account_id
+    except Exception:
+        pass
+
+    return JsonResponse({
+        "token": token.key,
+        "user_id": user.id,
+        "username": user.username,
+        "email": user.email,
+        "steam_id": steam_id,
+    })

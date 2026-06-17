@@ -27,5 +27,5 @@ export type HeroMeta = {
   avg_kda: number | null;
   avg_kill_participation: number | null;
 
-  updated_at: string; 
+  updated_at: string;
 }

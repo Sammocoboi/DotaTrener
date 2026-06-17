@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { View, Text } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { colors } from "@/lib/theme";
+import { saveToken } from "@/lib/token-storage";
 
 export default function AuthCallback() {
   const { token, steam_id, username, next } = useLocalSearchParams<{
@@ -28,5 +29,3 @@ export default function AuthCallback() {
     </View>
   );
 }
-
-import { saveToken } from "@/lib/token-storage";

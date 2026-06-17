@@ -4,7 +4,9 @@ from decimal import Decimal
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand
 
-from coaching.models import Coach, CoachService, CoachVideo, Player
+from coaching.models import Coach, CoachService, CoachVideo, Player, Subscription
+from django.utils import timezone
+from datetime import timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -173,6 +175,16 @@ class Command(BaseCommand):
                     "is_coach": True,
                     "current_mmr": coach_data["mmr_verified"],
                     "peak_mmr": coach_data["mmr_verified"],
+                },
+            )
+
+            Subscription.objects.update_or_create(
+                user=user,
+                defaults={
+                    "is_active": True,
+                    "plan": "monthly",
+                    "started_at": timezone.now(),
+                    "expires_at": timezone.now() + timedelta(days=365),
                 },
             )
 
