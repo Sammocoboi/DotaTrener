@@ -129,7 +129,7 @@ def set_stratz_token(request):
 @api_view(["GET"])
 @perm([permissions.IsAuthenticated])
 def fetch_my_matches(request):
-    """Получить историю матчей залогиненного игрока из Stratz"""
+    """Получить историю матчей: Steam Web API -> Stratz -> OpenDota"""
     player = getattr(request.user, "player_profile", None)
     if not player or not player.steam_account_id:
         return Response(
@@ -139,45 +139,246 @@ def fetch_my_matches(request):
 
     limit = int(request.query_params.get("limit", 20))
 
-    from stratz_meta.services import StratzClient
-
-    stratz_token = getattr(player, "stratz_token", "") or ""
-    client = StratzClient(token=stratz_token if stratz_token else None)
-    profile = client.fetch_player_profile(player.steam_account_id)
-    matches = client.fetch_player_matches(player.steam_account_id, take=limit)
-
     import logging
     logger = logging.getLogger(__name__)
-    logger.warning("Stratz profile for %s: %s", player.steam_account_id, profile)
-    logger.warning("Stratz matches for %s: %d found", player.steam_account_id, len(matches))
+
+    from django.utils import timezone
+    from django.conf import settings
+    import datetime
+    import requests as http_requests
+
+    results = []
+    wins = 0
+    losses = 0
+
+    steam_api_key = getattr(settings, "STEAM_WEB_API_KEY", "")
+
+    if steam_api_key:
+        try:
+            resp = http_requests.get(
+                "https://api.steampowered.com/IDOTA2Match_570/GetMatchHistory/v1/",
+                params={
+                    "key": steam_api_key,
+                    "account_id": player.steam_account_id,
+                    "matches_requested": limit,
+                },
+                timeout=15,
+            )
+            resp.raise_for_status()
+            data = resp.json().get("result", {})
+            matches = data.get("matches", [])
+            wins = data.get("wins", 0)
+            losses = data.get("losses", 0)
+
+            hero_map = {}
+            for m in matches:
+                for p in m.get("players", []):
+                    hid = p.get("hero_id")
+                    if hid and hid not in hero_map:
+                        hero_map[hid] = Hero.objects.filter(steam_id=int(hid)).first()
+
+            for m in matches:
+                players = m.get("players", [])
+                my_player = next(
+                    (pl for pl in players if pl.get("account_id") == player.steam_account_id),
+                    players[0] if players else {},
+                )
+                hero = hero_map.get(my_player.get("hero_id"))
+
+                duration = m.get("duration", 0)
+                player_slot = my_player.get("player_slot", 0)
+                side = "radiant" if player_slot < 128 else "dire"
+                radiant_win = m.get("radiant_win", False)
+                is_radiant = player_slot < 128
+                won = (radiant_win and is_radiant) or (not radiant_win and not is_radiant)
+                result = "win" if won else "loss"
+                played = m.get("start_time", 0)
+
+                played_at = timezone.now()
+                if played:
+                    played_at = timezone.make_aware(
+                        datetime.datetime.fromtimestamp(played)
+                    )
+
+                match_id = str(m.get("match_id"))
+                kills = my_player.get("kills", 0)
+                deaths = my_player.get("deaths", 0)
+                assists = my_player.get("assists", 0)
+
+                Match.objects.update_or_create(
+                    match_id=match_id,
+                    player=player,
+                    defaults={
+                        "hero": hero,
+                        "player_side": side,
+                        "result": result,
+                        "lobby_type": "ranked",
+                        "duration_seconds": duration,
+                        "played_at": played_at,
+                        "kills": kills,
+                        "deaths": deaths,
+                        "assists": assists,
+                        "gpm": my_player.get("gold_per_min", 0),
+                        "xpm": my_player.get("xp_per_min", 0),
+                        "last_hits": my_player.get("last_hits", 0),
+                        "denies": my_player.get("denies", 0),
+                        "api_data": m,
+                    },
+                )
+
+                results.append({
+                    "match_id": match_id,
+                    "hero": hero.localized_name if hero else f"Hero {my_player.get('hero_id')}",
+                    "result": result,
+                    "side": side,
+                    "duration": duration,
+                    "kda": f"{kills}/{deaths}/{assists}",
+                    "gpm": my_player.get("gold_per_min", 0),
+                    "xpm": my_player.get("xp_per_min", 0),
+                    "created": False,
+                })
+
+            if results:
+                return Response({
+                    "steam_account_id": player.steam_account_id,
+                    "wins": wins,
+                    "losses": losses,
+                    "matches": results,
+                })
+            logger.info("Steam Web API returned 0 matches for %s, trying Stratz", player.steam_account_id)
+        except Exception as e:
+            logger.warning("Steam Web API failed for %s: %s", player.steam_account_id, e)
+
+    stratz_token = getattr(player, "stratz_token", "") or ""
+    use_stratz = False
+
+    try:
+        from stratz_meta.services import StratzClient
+        client = StratzClient(token=stratz_token if stratz_token else None)
+        use_stratz = True
+    except ValueError:
+        pass
+
+    if use_stratz:
+        try:
+            profile = client.fetch_player_profile(player.steam_account_id)
+            matches = client.fetch_player_matches(player.steam_account_id, take=limit)
+
+            wins = profile.get("winCount", 0) if profile else 0
+            losses = profile.get("loseCount", 0) if profile else 0
+
+            hero_map = {}
+            for m in matches:
+                for p in m.get("players", []):
+                    hid = p.get("heroId")
+                    if hid and hid not in hero_map:
+                        hero_map[hid] = Hero.objects.filter(steam_id=int(hid)).first()
+
+            for m in matches:
+                players = m.get("players", [])
+                user_steam_id = player.steam_account_id
+                my_player = next(
+                    (pl for pl in players if pl.get("steamAccountId") == user_steam_id),
+                    players[0] if players else {},
+                )
+                hero = hero_map.get(my_player.get("heroId"))
+
+                duration = m.get("duration", 0)
+                side = "radiant" if my_player.get("isRadiant") else "dire"
+                won = (my_player.get("isRadiant") and m.get("didRadiantWin")) or (
+                    not my_player.get("isRadiant") and not m.get("didRadiantWin")
+                )
+                result = "win" if won else "loss"
+                played = m.get("startDateTime", 0)
+
+                played_at = timezone.now()
+                if played:
+                    played_at = timezone.make_aware(
+                        datetime.datetime.fromtimestamp(played)
+                    )
+
+                items = [my_player.get(f"item{j}Id") for j in range(6)]
+
+                Match.objects.update_or_create(
+                    match_id=str(m.get("id")),
+                    player=player,
+                    defaults={
+                        "hero": hero,
+                        "player_side": side,
+                        "result": result,
+                        "lobby_type": "ranked",
+                        "duration_seconds": duration,
+                        "played_at": played_at,
+                        "kills": my_player.get("kills", 0),
+                        "deaths": my_player.get("deaths", 0),
+                        "assists": my_player.get("assists", 0),
+                        "gpm": my_player.get("goldPerMinute", 0),
+                        "xpm": my_player.get("experiencePerMinute", 0),
+                        "last_hits": my_player.get("numLastHits", 0),
+                        "denies": my_player.get("numDenies", 0),
+                        "api_data": m,
+                    },
+                )
+
+                results.append({
+                    "match_id": m.get("id"),
+                    "hero": hero.localized_name if hero else f"Hero {my_player.get('heroId')}",
+                    "result": result,
+                    "side": side,
+                    "duration": duration,
+                    "kda": f"{my_player.get('kills',0)}/{my_player.get('deaths',0)}/{my_player.get('assists',0)}",
+                    "gpm": my_player.get("goldPerMinute", 0),
+                    "xpm": my_player.get("experiencePerMinute", 0),
+                    "created": False,
+                })
+
+            return Response({
+                "steam_account_id": player.steam_account_id,
+                "wins": wins,
+                "losses": losses,
+                "matches": results,
+            })
+        except Exception as e:
+            logger.warning("Stratz failed for %s: %s, falling back to OpenDota", player.steam_account_id, e)
+
+    try:
+        wl_resp = http_requests.get(
+            f"https://api.opendota.com/api/players/{player.steam_account_id}/wl",
+            timeout=10,
+        )
+        wl_resp.raise_for_status()
+        wl_data = wl_resp.json()
+        wins = wl_data.get("win", 0)
+        losses = wl_data.get("lose", 0)
+    except Exception as e:
+        logger.warning("OpenDota wl failed for %s: %s", player.steam_account_id, e)
+
+    try:
+        resp = http_requests.get(
+            f"https://api.opendota.com/api/players/{player.steam_account_id}/recentMatches",
+            params={"limit": limit},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        matches = resp.json()
+    except Exception as e:
+        logger.error("OpenDota recentMatches failed for %s: %s", player.steam_account_id, e)
+        return Response({"error": "Не удалось загрузить матчи"}, status=502)
 
     hero_map = {}
     for m in matches:
-        for p in m.get("players", []):
-            hid = p.get("heroId")
-            if hid and hid not in hero_map:
-                hero_map[hid] = Hero.objects.filter(steam_id=int(hid)).first()
+        hid = m.get("hero_id")
+        if hid and hid not in hero_map:
+            hero_map[hid] = Hero.objects.filter(steam_id=int(hid)).first()
 
-    results = []
     for m in matches:
-        players = m.get("players", [])
-        user_steam_id = player.steam_account_id
-        my_player = next(
-            (pl for pl in players if pl.get("steamAccountId") == user_steam_id),
-            players[0] if players else {},
-        )
-        hero = hero_map.get(my_player.get("heroId"))
-
+        hero = hero_map.get(m.get("hero_id"))
         duration = m.get("duration", 0)
-        side = "radiant" if my_player.get("isRadiant") else "dire"
-        won = (my_player.get("isRadiant") and m.get("didRadiantWin")) or (
-            not my_player.get("isRadiant") and not m.get("didRadiantWin")
-        )
+        player_slot = m.get("player_slot", 0)
+        side = "radiant" if player_slot < 128 else "dire"
+        won = (m.get("win", 0) == 1)
         result = "win" if won else "loss"
-        played = m.get("startDateTime", 0)
-
-        from django.utils import timezone
-        import datetime
+        played = m.get("start_time", 0)
 
         played_at = timezone.now()
         if played:
@@ -185,10 +386,13 @@ def fetch_my_matches(request):
                 datetime.datetime.fromtimestamp(played)
             )
 
-        items = [my_player.get(f"item{j}Id") for j in range(6)]
+        match_id = str(m.get("match_id"))
+        kills = m.get("kills", 0)
+        deaths = m.get("deaths", 0)
+        assists = m.get("assists", 0)
 
         match_obj, created = Match.objects.update_or_create(
-            match_id=str(m.get("id")),
+            match_id=match_id,
             player=player,
             defaults={
                 "hero": hero,
@@ -197,33 +401,33 @@ def fetch_my_matches(request):
                 "lobby_type": "ranked",
                 "duration_seconds": duration,
                 "played_at": played_at,
-                "kills": my_player.get("kills", 0),
-                "deaths": my_player.get("deaths", 0),
-                "assists": my_player.get("assists", 0),
-                "gpm": my_player.get("goldPerMinute", 0),
-                "xpm": my_player.get("experiencePerMinute", 0),
-                "last_hits": my_player.get("numLastHits", 0),
-                "denies": my_player.get("numDenies", 0),
+                "kills": kills,
+                "deaths": deaths,
+                "assists": assists,
+                "gpm": m.get("gold_per_min", 0),
+                "xpm": m.get("xp_per_min", 0),
+                "last_hits": m.get("last_hits", 0),
+                "denies": m.get("denies", 0),
                 "api_data": m,
             },
         )
 
         results.append({
-            "match_id": m.get("id"),
-            "hero": hero.localized_name if hero else f"Hero {my_player.get('heroId')}",
+            "match_id": match_id,
+            "hero": hero.localized_name if hero else f"Hero {m.get('hero_id')}",
             "result": result,
             "side": side,
             "duration": duration,
-            "kda": f"{my_player.get('kills',0)}/{my_player.get('deaths',0)}/{my_player.get('assists',0)}",
-            "gpm": my_player.get("goldPerMinute", 0),
-            "xpm": my_player.get("experiencePerMinute", 0),
+            "kda": f"{kills}/{deaths}/{assists}",
+            "gpm": m.get("gold_per_min", 0),
+            "xpm": m.get("xp_per_min", 0),
             "created": created,
         })
 
     return Response({
         "steam_account_id": player.steam_account_id,
-        "wins": profile.get("winCount") if profile else 0,
-        "losses": profile.get("loseCount") if profile else 0,
+        "wins": wins,
+        "losses": losses,
         "matches": results,
     })
 

@@ -59,13 +59,17 @@ def _get_or_create_user(steam_id: str) -> tuple[User, bool]:
     steam_id_64 = int(steam_id)
     account_id = _steam64_to_account_id(steam_id_64)
 
+    from coaching.models import Player
+
+    existing = Player.objects.filter(steam_account_id=account_id).select_related('user').first()
+    if existing:
+        return existing.user, False
+
     username = f"steam_{steam_id_64}"
     user, created = User.objects.get_or_create(
         username=username,
         defaults={"first_name": f"Steam {steam_id_64}"},
     )
-
-    from coaching.models import Player
 
     player, _ = Player.objects.get_or_create(user=user)
     if not player.steam_account_id:
@@ -76,10 +80,32 @@ def _get_or_create_user(steam_id: str) -> tuple[User, bool]:
     return user, created
 
 
+def _link_steam_to_user(user, steam_id: str):
+    steam_id_64 = int(steam_id)
+    account_id = _steam64_to_account_id(steam_id_64)
+
+    from coaching.models import Player
+
+    player, _ = Player.objects.get_or_create(user=user)
+
+    if player.steam_account_id:
+        if player.steam_account_id == account_id:
+            return
+        raise ValueError("К этому аккаунту уже привязан другой Steam")
+
+    if Player.objects.filter(steam_account_id=account_id).exclude(user=user).exists():
+        raise ValueError("Этот Steam аккаунт уже привязан к другому пользователю")
+
+    player.steam_account_id = account_id
+    player.steam_id_64 = steam_id_64
+    player.save(update_fields=["steam_account_id", "steam_id_64"])
+
+
 class SteamLoginView(View):
     def get(self, request):
         next_page = request.GET.get("next", "")
         return_to = request.GET.get("return_to", "")
+        token = request.GET.get("token", "")
         site_url = getattr(settings, "SITE_URL", "http://localhost:8000")
         callback = f"{site_url}/api/auth/steam/callback/"
         params = []
@@ -87,6 +113,8 @@ class SteamLoginView(View):
             params.append(f"next={urllib.parse.quote(next_page)}")
         if return_to:
             params.append(f"return_to={urllib.parse.quote(return_to)}")
+        if token:
+            params.append(f"token={token}")
         if params:
             callback += "?" + "&".join(params)
         login_url = _build_steam_login_url(callback)
@@ -105,11 +133,22 @@ class SteamCallbackView(View):
         if not steam_id:
             return JsonResponse({"error": "Steam verification failed"}, status=400)
 
-        user, created = _get_or_create_user(steam_id)
-
         from rest_framework.authtoken.models import Token
+        token_key = request.GET.get("token", "")
 
-        token, _ = Token.objects.get_or_create(user=user)
+        if token_key:
+            try:
+                token = Token.objects.get(key=token_key)
+                user = token.user
+            except Token.DoesNotExist:
+                return JsonResponse({"error": "Token invalid"}, status=400)
+            try:
+                _link_steam_to_user(user, steam_id)
+            except ValueError as e:
+                return JsonResponse({"error": str(e)}, status=400)
+        else:
+            user, _ = _get_or_create_user(steam_id)
+            token, _ = Token.objects.get_or_create(user=user)
 
         next_page = request.GET.get("next", "")
         return_to = request.GET.get("return_to", "")

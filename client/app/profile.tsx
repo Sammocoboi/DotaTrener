@@ -320,8 +320,10 @@ export default function ProfileScreen() {
               {!profile.player.steam_account_id ? (
                 <Pressable
                   onPress={() => {
-                    const url = `${API_ROOT}/api/auth/steam/login/?next=profile`;
+                    let url = `${API_ROOT}/api/auth/steam/login/?next=profile${token ? `&token=${token}` : ''}`;
                     if (Platform.OS === "web") {
+                      const returnUrl = encodeURIComponent(window.location.origin);
+                      url += `&return_to=${returnUrl}`;
                       window.location.href = url;
                     } else {
                       WebBrowser.openAuthSessionAsync(url, "client://auth-callback");
