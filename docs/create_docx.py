@@ -6,6 +6,124 @@ from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml.ns import qn
 import re
 
+def add_title_page(doc, organization, title, student_name, student_group, supervisor, city, year):
+    style = doc.styles['Normal']
+    font = style.font
+    font.name = 'Times New Roman'
+    font.size = Pt(14)
+    
+    t = doc.add_paragraph()
+    t.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    r = t.add_run(organization)
+    r.font.size = Pt(14)
+    r.bold = True
+    r.font.name = 'Times New Roman'
+    
+    for _ in range(6):
+        p = doc.add_paragraph()
+        p.paragraph_format.space_after = Pt(0)
+        p.paragraph_format.space_before = Pt(0)
+    
+    t = doc.add_paragraph()
+    t.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    r = t.add_run(title)
+    r.font.size = Pt(16)
+    r.bold = True
+    r.font.name = 'Times New Roman'
+    
+    for _ in range(4):
+        p = doc.add_paragraph()
+        p.paragraph_format.space_after = Pt(0)
+        p.paragraph_format.space_before = Pt(0)
+    
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    p.paragraph_format.space_after = Pt(2)
+    run = p.add_run('Работа студента')
+    run.font.size = Pt(14)
+    run.font.name = 'Times New Roman'
+    
+    student_lines = student_name.split('\n')
+    for line in student_lines:
+        p = doc.add_paragraph()
+        p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+        p.paragraph_format.space_after = Pt(2)
+        p.paragraph_format.space_before = Pt(0)
+        run = p.add_run(line.strip())
+        run.font.size = Pt(14)
+        run.font.name = 'Times New Roman'
+        run.bold = True
+    
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    p.paragraph_format.space_after = Pt(2)
+    run = p.add_run(f'Обучающегося {student_group}')
+    run.font.size = Pt(14)
+    run.font.name = 'Times New Roman'
+    
+    for _ in range(2):
+        p = doc.add_paragraph()
+        p.paragraph_format.space_after = Pt(0)
+        p.paragraph_format.space_before = Pt(0)
+    
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    p.paragraph_format.space_after = Pt(2)
+    run = p.add_run('Руководитель проекта')
+    run.font.size = Pt(14)
+    run.font.name = 'Times New Roman'
+    
+    supervisor_lines = supervisor.split('\n')
+    for line in supervisor_lines:
+        p = doc.add_paragraph()
+        p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+        p.paragraph_format.space_after = Pt(2)
+        p.paragraph_format.space_before = Pt(0)
+        run = p.add_run(line.strip())
+        run.font.size = Pt(14)
+        run.font.name = 'Times New Roman'
+        run.bold = True
+    
+    for _ in range(4):
+        p = doc.add_paragraph()
+        p.paragraph_format.space_after = Pt(0)
+        p.paragraph_format.space_before = Pt(0)
+    
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    p.paragraph_format.space_after = Pt(2)
+    run = p.add_run('Работа допущена к защите «___» _________2024г')
+    run.font.size = Pt(14)
+    run.font.name = 'Times New Roman'
+    
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    p.paragraph_format.space_after = Pt(2)
+    run = p.add_run('Подпись руководителя проекта ___________________ (________________)')
+    run.font.size = Pt(14)
+    run.font.name = 'Times New Roman'
+    
+    for _ in range(2):
+        p = doc.add_paragraph()
+        p.paragraph_format.space_after = Pt(0)
+        p.paragraph_format.space_before = Pt(0)
+    
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p.paragraph_format.space_after = Pt(2)
+    run = p.add_run(f'г. {city}')
+    run.font.size = Pt(14)
+    run.font.name = 'Times New Roman'
+    
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p.paragraph_format.space_after = Pt(2)
+    run = p.add_run(f'{year} г.')
+    run.font.size = Pt(14)
+    run.font.name = 'Times New Roman'
+    
+    doc.add_page_break()
+
 def set_cell_shading(cell, color):
     shading = cell._element.get_or_add_tcPr()
     shading_elm = shading.makeelement(qn('w:shd'), {
@@ -69,28 +187,33 @@ def create_doc1():
     font.name = 'Times New Roman'
     font.size = Pt(12)
     
-    doc.add_paragraph()
-    title = doc.add_heading('ТЕХНИЧЕСКОЕ ЗАДАНИЕ', 0)
-    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    organization = """АВТОНОМНАЯ НЕКОММЕРЧЕСКАЯ ОРГАНИЗАЦИЯ ПРОФЕССИОНАЛЬНАЯ
+ОБРАЗОВАТЕЛЬНАЯ ОРГАНИЗАЦИЯ МОСКОВСКИЙ МЕЖДУНАРОДНЫЙ КОЛЛЕДЖ
+ЦИФРОВЫХ ТЕХНОЛОГИЙ «АКАДЕМИЯ ТОП»"""
     
-    subtitle = doc.add_paragraph()
-    subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = subtitle.add_run('Техническое задание на разработку программного обеспечения\n«DotaTrener — платформа для поиска и взаимодействия с тренерами по Dota 2»')
-    run.font.size = Pt(14)
-    run.font.name = 'Times New Roman'
+    student_name = """Иванов
+Иван
+Иванович"""
     
-    info = doc.add_paragraph()
-    info.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = info.add_run('Шифр документа: ТЗ-DotaTrener-001\nВерсия: 1.0\nДата составления: 2026')
-    run.font.size = Pt(11)
-    run.font.name = 'Times New Roman'
-    run.italic = True
+    supervisor = """Овсейко Наталья
+Павловна"""
     
-    doc.add_page_break()
+    add_title_page(
+        doc=doc,
+        organization=organization,
+        title="Техническое задание на разработку программного обеспечения\n«DotaTrener — платформа для поиска и взаимодействия с тренерами по Dota 2»",
+        student_name=student_name,
+        student_group="9/1-РПО-24/1",
+        supervisor=supervisor,
+        city="Оренбург",
+        year="2025"
+    )
     
     add_heading(doc, '1. Назначение и область применения программы', 1)
     
-    add_heading(doc, '1.1. Назначение программы', 2)
+    h = add_heading(doc, 'Назначение программы', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, 'DotaTrener — это кроссплатформенное мобильное приложение (веб + Android), предназначенное для поиска, выбора и взаимодействия с тренерами по компьютерной игре Dota 2. Программа обеспечивает:')
     add_paragraph(doc, '• Автоматизированный подбор тренеров на основе рейтинга, специализации и стоимости услуг;')
     add_paragraph(doc, '• Просмотр статистики игроков (матчи, герой, KDA, GPM/XPM, нетворс);')
@@ -98,34 +221,44 @@ def create_doc1():
     add_paragraph(doc, '• Управление услугами и видео-материалами для тренеров;')
     add_paragraph(doc, '• Интеграция со Steam API и Stratz API для получения данных о матчах.')
     
-    add_heading(doc, '1.2. Область применения', 2)
+    h = add_heading(doc, 'Область применения', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, 'Программа предназначена для использования в сфере киберспортивного коучинга. Целевая аудитория:')
     add_paragraph(doc, '• Игроки Dota 2 — поиск тренеров для улучшения навыков игры;')
     add_paragraph(doc, '• Тренеры (коучи) — предоставление услуг по разбору матчей, обучению, продвижению своих услуг;')
     add_paragraph(doc, '• Администраторы — модерация заявок тренеров.')
     
-    add_heading(doc, '1.3. Нормативные документы', 2)
+    h = add_heading(doc, 'Нормативные документы', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_table(doc, ['Документ', 'Описание'], [
-        ['ГОСТ 19.201-78', 'Техническое задание. Требования к содержанию и оформлению'],
-        ['ГОСТ 19.404-78', 'Пояснительная записка. Требования к содержанию и оформлению'],
-        ['ГОСТ 19.402-78', 'Описание программы. Требования к содержанию и оформлению'],
-        ['ГОСТ 19.401-78', 'Текст программы. Требования к содержанию и оформлению'],
-        ['ГОСТ 19.504-78', 'Руководство программиста. Требования к содержанию и оформлению'],
-        ['ГОСТ 19.505-78', 'Руководство пользователя. Требования к содержанию и оформлению'],
+        ['Техническое задание', 'Техническое задание. Требования к содержанию и оформлению'],
+        ['Пояснительная записка', 'Пояснительная записка. Требования к содержанию и оформлению'],
+        ['Описание программы', 'Описание программы. Требования к содержанию и оформлению'],
+        ['Текст программы', 'Текст программы. Требования к содержанию и оформлению'],
+        ['Руководство программиста', 'Руководство программиста. Требования к содержанию и оформлению'],
+        ['Руководство пользователя', 'Руководство пользователя. Требования к содержанию и оформлению'],
     ])
     
     add_heading(doc, '2. Требования к функционалу', 1)
     
-    add_heading(doc, '2.1. Функциональные требования', 2)
+    h = add_heading(doc, 'Функциональные требования', 2)
     
-    add_heading(doc, '2.1.1. Авторизация и аутентификация', 3)
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    
+    h = add_heading(doc, 'Авторизация и аутентификация', 3)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_table(doc, ['ID', 'Требование', 'Приоритет'], [
         ['F-01', 'Аутентификация пользователя через Steam OpenID', 'Обязательное'],
         ['F-02', 'Сохранение токена авторизации на клиенте', 'Обязательное'],
         ['F-03', 'Получение профиля пользователя', 'Обязательное'],
     ])
     
-    add_heading(doc, '2.1.2. Профиль игрока', 3)
+    h = add_heading(doc, 'Профиль игрока', 3)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_table(doc, ['ID', 'Требование', 'Приоритет'], [
         ['F-04', 'Отображение профиля: ник, Steam ID, MMR, ранг, аватар', 'Обязательное'],
         ['F-05', 'Редактирование имени пользователя', 'Обязательное'],
@@ -134,7 +267,9 @@ def create_doc1():
         ['F-08', 'Ввод и сохранение Stratz API токена', 'Обязательное'],
     ])
     
-    add_heading(doc, '2.1.3. Просмотр матчей', 3)
+    h = add_heading(doc, 'Просмотр матчей', 3)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_table(doc, ['ID', 'Требование', 'Приоритет'], [
         ['F-09', 'Список последних 20 матчей игрока', 'Обязательное'],
         ['F-10', 'Детальный просмотр матча', 'Обязательное'],
@@ -143,7 +278,9 @@ def create_doc1():
         ['F-13', 'Просмотр сборок героев', 'Желательное'],
     ])
     
-    add_heading(doc, '2.1.4. Тренеры', 3)
+    h = add_heading(doc, 'Тренеры', 3)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_table(doc, ['ID', 'Требование', 'Приоритет'], [
         ['F-17', 'Каталог тренеров с фильтрацией', 'Обязательное'],
         ['F-18', 'Страница тренера', 'Обязательное'],
@@ -152,7 +289,9 @@ def create_doc1():
         ['F-22', 'Отправка отзыва', 'Обязательное'],
     ])
     
-    add_heading(doc, '2.1.5. Чат (мессенджер)', 3)
+    h = add_heading(doc, 'Чат (мессенджер)', 3)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_table(doc, ['ID', 'Требование', 'Приоритет'], [
         ['F-29', 'Создание беседы между игроком и тренером', 'Обязательное'],
         ['F-30', 'Список бесед с последним сообщением', 'Обязательное'],
@@ -160,7 +299,9 @@ def create_doc1():
         ['F-32', 'Отображение времени отправки', 'Обязательное'],
     ])
     
-    add_heading(doc, '2.2. Нефункциональные требования', 2)
+    h = add_heading(doc, 'Нефункциональные требования', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_table(doc, ['ID', 'Требование', 'Значение'], [
         ['NF-01', 'Время загрузки главного экрана', 'Не более 3 секунд'],
         ['NF-02', 'Поддержка платформ', 'Web, Android'],
@@ -182,7 +323,9 @@ def create_doc1():
     
     add_heading(doc, '4. Требования к оборудованию', 1)
     
-    add_heading(doc, '4.1. Серверное оборудование', 2)
+    h = add_heading(doc, 'Серверное оборудование', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_table(doc, ['Параметр', 'Требование'], [
         ['Процессор', 'x86_64, 2+ ядра'],
         ['Оперативная память', '2 ГБ+'],
@@ -192,7 +335,9 @@ def create_doc1():
         ['База данных', 'SQLite / PostgreSQL'],
     ])
     
-    add_heading(doc, '4.2. Клиентское оборудование', 2)
+    h = add_heading(doc, 'Клиентское оборудование', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_table(doc, ['Параметр', 'Требование'], [
         ['Устройства', 'Смартфоны Android, компьютеры (Web)'],
         ['ОС Android', '5.0+'],
@@ -225,7 +370,7 @@ def create_doc1():
         ['Безопасность', 'Авторизация через Steam работает корректно'],
     ])
     
-    doc.save('C:/Users/Student/Documents/GitHub/DotaTrener/docs/1_техническое_задание.docx')
+    doc.save('C:/Users/Sammo Soboi/Documents/GitHub/DotaTrener/docs/1_техническое_задание.docx')
 
 def create_doc2():
     doc = Document()
@@ -235,21 +380,33 @@ def create_doc2():
     font.name = 'Times New Roman'
     font.size = Pt(12)
     
-    doc.add_paragraph()
-    title = doc.add_heading('ПОЯСНИТЕЛЬНАЯ ЗАПИСКА', 0)
-    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    organization = """АВТОНОМНАЯ НЕКОММЕРЧЕСКАЯ ОРГАНИЗАЦИЯ ПРОФЕССИОНАЛЬНАЯ
+ОБРАЗОВАТЕЛЬНАЯ ОРГАНИЗАЦИЯ МОСКОВСКИЙ МЕЖДУНАРОДНЫЙ КОЛЛЕДЖ
+ЦИФРОВЫХ ТЕХНОЛОГИЙ «АКАДЕМИЯ ТОП»"""
     
-    subtitle = doc.add_paragraph()
-    subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = subtitle.add_run('к проекту\n«DotaTrener — платформа для поиска и взаимодействия с тренерами по Dota 2»')
-    run.font.size = Pt(14)
-    run.font.name = 'Times New Roman'
+    student_name = """Иванов
+Иван
+Иванович"""
     
-    doc.add_page_break()
+    supervisor = """Овсейко Наталья
+Павловна"""
+    
+    add_title_page(
+        doc=doc,
+        organization=organization,
+        title="Пояснительная записка к проекту\n«DotaTrener — платформа для поиска и взаимодействия с тренерами по Dota 2»",
+        student_name=student_name,
+        student_group="9/1-РПО-24/1",
+        supervisor=supervisor,
+        city="Оренбург",
+        year="2025"
+    )
     
     add_heading(doc, '1. Введение', 1)
     
-    add_heading(doc, '1.1. Актуальность', 2)
+    h = add_heading(doc, 'Актуальность', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, 'Dota 2 — одна из самых популярных киберспортивных дисциплин в мире с более чем 700 000 активных игроков ежедневно. Большинство игроков стремятся улучшить свои навыки, но не имеют доступа к квалифицированному коучингу.')
     add_paragraph(doc, 'DotaTrener решает эту проблему, предоставляя:')
     add_paragraph(doc, '• Автоматизированный подбор тренеров на основе игровой статистики;')
@@ -257,7 +414,9 @@ def create_doc2():
     add_paragraph(doc, '• Внутренний мессенджер для общения;')
     add_paragraph(doc, '• Удобный инструмент для тренеров по продвижению услуг.')
     
-    add_heading(doc, '1.2. Цель проекта', 2)
+    h = add_heading(doc, 'Цель проекта', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, 'Разработать кроссплатформенное мобильное приложение (Web + Android) для поиска и взаимодействия с тренерами по Dota 2.')
     
     add_heading(doc, '2. Назначение и область применения', 1)
@@ -266,7 +425,9 @@ def create_doc2():
     
     add_heading(doc, '3. Описание алгоритмов программы', 1)
     
-    add_heading(doc, '3.1. Алгоритм авторизации через Steam', 2)
+    h = add_heading(doc, 'Алгоритм авторизации через Steam', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, '1. Пользователь нажимает "Войти через Steam"')
     add_paragraph(doc, '2. Клиент перенаправляется на URL Steam OpenID')
     add_paragraph(doc, '3. Steam перенаправляет пользователя обратно с параметрами')
@@ -274,7 +435,9 @@ def create_doc2():
     add_paragraph(doc, '5. Клиент сохраняет токен')
     add_paragraph(doc, '6. Пользователь перенаправляется на главный экран')
     
-    add_heading(doc, '3.2. Алгоритм загрузки матчей', 2)
+    h = add_heading(doc, 'Алгоритм загрузки матчей', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, '1. Клиент отправляет GET /api/coaching/my-matches/')
     add_paragraph(doc, '2. Сервер проверяет наличие Stratz токена')
     add_paragraph(doc, '3. Сервер отправляет запрос к Stratz GraphQL API')
@@ -282,7 +445,9 @@ def create_doc2():
     add_paragraph(doc, '5. Сервер возвращает JSON клиенту')
     add_paragraph(doc, '6. Клиент отображает список')
     
-    add_heading(doc, '3.3. Алгоритм отправки сообщения', 2)
+    h = add_heading(doc, 'Алгоритм отправки сообщения', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, '1. Пользователь вводит текст и нажимает "Отправить"')
     add_paragraph(doc, '2. Клиент отправляет POST /api/coaching/conversations/{id}/')
     add_paragraph(doc, '3. Сервер создаёт объект Message')
@@ -292,14 +457,18 @@ def create_doc2():
     
     add_heading(doc, '4. Описание структуры программы', 1)
     
-    add_heading(doc, '4.1. Архитектура приложения', 2)
+    h = add_heading(doc, 'Архитектура приложения', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, 'Приложение построено по архитектуре Client-Server:')
     add_paragraph(doc, '• Клиент: React Native (Expo) + TypeScript')
     add_paragraph(doc, '• Сервер: Django REST Framework + Python')
     add_paragraph(doc, '• База данных: SQLite (разработка) / PostgreSQL (продакшен)')
     add_paragraph(doc, '• Внешние API: Steam, Stratz, OpenDota')
     
-    add_heading(doc, '4.2. Структура клиента', 2)
+    h = add_heading(doc, 'Структура клиента', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, 'client/')
     add_paragraph(doc, '├── app/ — Экраны (Expo Router, 18 файлов)')
     add_paragraph(doc, '├── src/components/ — Переиспользуемые компоненты')
@@ -307,7 +476,9 @@ def create_doc2():
     add_paragraph(doc, '├── src/hooks/ — Пользовательские хуки')
     add_paragraph(doc, '└── src/types/ — TypeScript-типы')
     
-    add_heading(doc, '4.3. Структура сервера', 2)
+    h = add_heading(doc, 'Структура сервера', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, 'DotaTrener/')
     add_paragraph(doc, '├── DotaTrener/ — Основной пакет Django')
     add_paragraph(doc, '├── coaching/ — Приложение coaching (модели, API)')
@@ -341,7 +512,7 @@ def create_doc2():
         ['T-10', 'Управление услугами', 'Пройден'],
     ])
     
-    doc.save('C:/Users/Student/Documents/GitHub/DotaTrener/docs/2_пояснительная_записка.docx')
+    doc.save('C:/Users/Sammo Soboi/Documents/GitHub/DotaTrener/docs/2_пояснительная_записка.docx')
 
 def create_doc3():
     doc = Document()
@@ -351,17 +522,27 @@ def create_doc3():
     font.name = 'Times New Roman'
     font.size = Pt(12)
     
-    doc.add_paragraph()
-    title = doc.add_heading('ОПИСАНИЕ ПРОГРАММЫ', 0)
-    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    organization = """АВТОНОМНАЯ НЕКОММЕРЧЕСКАЯ ОРГАНИЗАЦИЯ ПРОФЕССИОНАЛЬНАЯ
+ОБРАЗОВАТЕЛЬНАЯ ОРГАНИЗАЦИЯ МОСКОВСКИЙ МЕЖДУНАРОДНЫЙ КОЛЛЕДЖ
+ЦИФРОВЫХ ТЕХНОЛОГИЙ «АКАДЕМИЯ ТОП»"""
     
-    subtitle = doc.add_paragraph()
-    subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = subtitle.add_run('«DotaTrener — платформа для поиска и взаимодействия с тренерами по Dota 2»')
-    run.font.size = Pt(14)
-    run.font.name = 'Times New Roman'
+    student_name = """Иванов
+Иван
+Иванович"""
     
-    doc.add_page_break()
+    supervisor = """Овсейко Наталья
+Павловна"""
+    
+    add_title_page(
+        doc=doc,
+        organization=organization,
+        title="Описание программы\n«DotaTrener — платформа для поиска и взаимодействия с тренерами по Dota 2»",
+        student_name=student_name,
+        student_group="9/1-РПО-24/1",
+        supervisor=supervisor,
+        city="Оренбург",
+        year="2025"
+    )
     
     add_heading(doc, '1. Наименование программы', 1)
     add_paragraph(doc, 'DotaTrener (сокращённо: Dota Trainer)')
@@ -387,7 +568,9 @@ def create_doc3():
     
     add_heading(doc, '4. Условия выполнения программы', 1)
     
-    add_heading(doc, '4.1. Аппаратные требования', 2)
+    h = add_heading(doc, 'Аппаратные требования', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, 'Сервер:', bold=True)
     add_paragraph(doc, '• Процессор: x86_64, 2+ ядра')
     add_paragraph(doc, '• ОЗУ: 2 ГБ+')
@@ -399,7 +582,9 @@ def create_doc3():
     add_paragraph(doc, '• ОС: Windows 10+, macOS 10.14+, Android 5.0+')
     add_paragraph(doc, '• Браузер: Chrome 90+, Firefox 88+, Safari 14+')
     
-    add_heading(doc, '4.2. Программные требования', 2)
+    h = add_heading(doc, 'Программные требования', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, 'Сервер:', bold=True)
     add_paragraph(doc, '• ОС: Linux (Ubuntu 22.04 LTS)')
     add_paragraph(doc, '• Python 3.10+')
@@ -408,7 +593,9 @@ def create_doc3():
     
     add_heading(doc, '5. Входные и выходные данные', 1)
     
-    add_heading(doc, '5.1. Входные данные', 2)
+    h = add_heading(doc, 'Входные данные', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_table(doc, ['Данные', 'Источник', 'Формат'], [
         ['Данные Steam OpenID', 'Steam API', 'JSON'],
         ['Stratz API токен', 'Пользователь', 'Строка (JWT)'],
@@ -418,7 +605,9 @@ def create_doc3():
         ['Аватар', 'Пользователь', 'JPEG/PNG'],
     ])
     
-    add_heading(doc, '5.2. Выходные данные', 2)
+    h = add_heading(doc, 'Выходные данные', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_table(doc, ['Данные', 'Назначение', 'Формат'], [
         ['Профиль игрока', 'Отображение на экране', 'JSON'],
         ['Список матчей', 'Просмотр статистики', 'JSON'],
@@ -445,7 +634,7 @@ def create_doc3():
         ['DELETE', '/api/coaching/my-services/{id}/', 'Удаление услуги'],
     ])
     
-    doc.save('C:/Users/Student/Documents/GitHub/DotaTrener/docs/3_описание_программы.docx')
+    doc.save('C:/Users/Sammo Soboi/Documents/GitHub/DotaTrener/docs/3_описание_программы.docx')
 
 def create_doc4():
     doc = Document()
@@ -455,26 +644,40 @@ def create_doc4():
     font.name = 'Times New Roman'
     font.size = Pt(12)
     
-    doc.add_paragraph()
-    title = doc.add_heading('ТЕКСТ ПРОГРАММЫ', 0)
-    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    organization = """АВТОНОМНАЯ НЕКОММЕРЧЕСКАЯ ОРГАНИЗАЦИЯ ПРОФЕССИОНАЛЬНАЯ
+ОБРАЗОВАТЕЛЬНАЯ ОРГАНИЗАЦИЯ МОСКОВСКИЙ МЕЖДУНАРОДНЫЙ КОЛЛЕДЖ
+ЦИФРОВЫХ ТЕХНОЛОГИЙ «АКАДЕМИЯ ТОП»"""
     
-    subtitle = doc.add_paragraph()
-    subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = subtitle.add_run('«DotaTrener — платформа для поиска и взаимодействия с тренерами по Dota 2»')
-    run.font.size = Pt(14)
-    run.font.name = 'Times New Roman'
+    student_name = """Иванов
+Иван
+Иванович"""
     
-    doc.add_page_break()
+    supervisor = """Овсейко Наталья
+Павловна"""
+    
+    add_title_page(
+        doc=doc,
+        organization=organization,
+        title="Текст программы\n«DotaTrener — платформа для поиска и взаимодействия с тренерами по Dota 2»",
+        student_name=student_name,
+        student_group="9/1-РПО-24/1",
+        supervisor=supervisor,
+        city="Оренбург",
+        year="2025"
+    )
     
     add_heading(doc, '1. Общие сведения о тексте программы', 1)
     
-    add_heading(doc, '1.1. Язык программирования', 2)
+    h = add_heading(doc, 'Язык программирования', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, 'Программа разработана на следующих языках:')
     add_paragraph(doc, '• Frontend: TypeScript (React Native)')
     add_paragraph(doc, '• Backend: Python (Django)')
     
-    add_heading(doc, '1.2. Объём исходного кода', 2)
+    h = add_heading(doc, 'Объём исходного кода', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_table(doc, ['Компонент', 'Файлов', 'Строк кода'], [
         ['Frontend (client/app)', '18', '~3 500'],
         ['Frontend (client/src)', '12', '~800'],
@@ -485,9 +688,13 @@ def create_doc4():
     
     add_heading(doc, '2. Описание основных модулей', 1)
     
-    add_heading(doc, '2.1. Клиентская часть', 2)
+    h = add_heading(doc, 'Клиентская часть', 2)
     
-    add_heading(doc, '2.1.1. Корневой layout (_layout.tsx)', 3)
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    
+    h = add_heading(doc, 'Корневой layout (_layout.tsx)', 3)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, 'Назначение: Инициализация навигации и токена авторизации')
     add_paragraph(doc, 'Объём: 9 строк')
     add_paragraph(doc, 'Функции:')
@@ -495,7 +702,9 @@ def create_doc4():
     add_paragraph(doc, '• Настройка навигатора Stack')
     add_paragraph(doc, '• Установка фона экранов')
     
-    add_heading(doc, '2.1.2. Главный экран (index.tsx)', 3)
+    h = add_heading(doc, 'Главный экран (index.tsx)', 3)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, 'Назначение: Главный экран с навигацией по разделам')
     add_paragraph(doc, 'Объём: 86 строк')
     add_paragraph(doc, 'Функции:')
@@ -503,7 +712,9 @@ def create_doc4():
     add_paragraph(doc, '• Отображение карточек навигации')
     add_paragraph(doc, '• Рекомендации по героям')
     
-    add_heading(doc, '2.1.3. Профиль (profile.tsx)', 3)
+    h = add_heading(doc, 'Профиль (profile.tsx)', 3)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, 'Назначение: Просмотр и редактирование профиля пользователя')
     add_paragraph(doc, 'Объём: 492 строки')
     add_paragraph(doc, 'Функции:')
@@ -515,7 +726,9 @@ def create_doc4():
     add_paragraph(doc, '• Отправка заявки на тренера')
     add_paragraph(doc, '• Управление социальными сетями')
     
-    add_heading(doc, '2.1.4. Каталог тренеров (coaches.tsx)', 3)
+    h = add_heading(doc, 'Каталог тренеров (coaches.tsx)', 3)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, 'Назначение: Список всех тренеров')
     add_paragraph(doc, 'Объём: 82 строки')
     add_paragraph(doc, 'Функции:')
@@ -523,7 +736,9 @@ def create_doc4():
     add_paragraph(doc, '• Отображение аватара, имени, рейтинга')
     add_paragraph(doc, '• Навигация на страницу тренера')
     
-    add_heading(doc, '2.1.5. Страница тренера (coach-detail.tsx)', 3)
+    h = add_heading(doc, 'Страница тренера (coach-detail.tsx)', 3)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, 'Назначение: Детальная информация о тренере')
     add_paragraph(doc, 'Объём: 269 строк')
     add_paragraph(doc, 'Функции:')
@@ -533,7 +748,9 @@ def create_doc4():
     add_paragraph(doc, '• Список видео')
     add_paragraph(doc, '• Отзывы и форма отзыва')
     
-    add_heading(doc, '2.1.6. Список матчей (matches.tsx)', 3)
+    h = add_heading(doc, 'Список матчей (matches.tsx)', 3)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, 'Назначение: Список последних 20 матчей')
     add_paragraph(doc, 'Объём: 151 строка')
     add_paragraph(doc, 'Функции:')
@@ -541,7 +758,9 @@ def create_doc4():
     add_paragraph(doc, '• Отображение героя, результата, KDA, GPM/XPM')
     add_paragraph(doc, '• Цветовая индикация побед/поражений')
     
-    add_heading(doc, '2.1.7. Детали матча (match-detail.tsx)', 3)
+    h = add_heading(doc, 'Детали матча (match-detail.tsx)', 3)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, 'Назначение: Детальный просмотр матча')
     add_paragraph(doc, 'Объём: 616 строк')
     add_paragraph(doc, 'Функции:')
@@ -550,7 +769,9 @@ def create_doc4():
     add_paragraph(doc, '• Сравнение урона')
     add_paragraph(doc, '• Сборки героев (предметы, скиллы, таланты)')
     
-    add_heading(doc, '2.1.8. Чат (chat.tsx)', 3)
+    h = add_heading(doc, 'Чат (chat.tsx)', 3)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, 'Назначение: Экран чата с тренером')
     add_paragraph(doc, 'Объём: 102 строки')
     add_paragraph(doc, 'Функции:')
@@ -558,9 +779,13 @@ def create_doc4():
     add_paragraph(doc, '• Отправка новых сообщений')
     add_paragraph(doc, '• Автопрокрутка к последнему сообщению')
     
-    add_heading(doc, '2.2. Серверная часть', 2)
+    h = add_heading(doc, 'Серверная часть', 2)
     
-    add_heading(doc, '2.2.1. Модели данных (coaching/models.py)', 3)
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    
+    h = add_heading(doc, 'Модели данных (coaching/models.py)', 3)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, 'Назначение: Определение моделей данных (ORM)')
     add_paragraph(doc, 'Объём: 390 строк')
     add_paragraph(doc, 'Модели:')
@@ -577,7 +802,9 @@ def create_doc4():
     add_paragraph(doc, '• Item — Предмет Dota 2')
     add_paragraph(doc, '• Ability — Способность Dota 2')
     
-    add_heading(doc, '2.2.2. API-представления (coaching/views.py)', 3)
+    h = add_heading(doc, 'API-представления (coaching/views.py)', 3)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, 'Назначение: Обработка HTTP-запросов')
     add_paragraph(doc, 'Объём: ~600 строк')
     add_paragraph(doc, 'Основные эндпоинты:')
@@ -590,7 +817,9 @@ def create_doc4():
     
     add_heading(doc, '3. Используемые библиотеки', 1)
     
-    add_heading(doc, '3.1. Frontend', 2)
+    h = add_heading(doc, 'Frontend', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_table(doc, ['Библиотека', 'Назначение'], [
         ['react', 'UI-библиотека'],
         ['react-native', 'Кроссплатформенный UI'],
@@ -602,7 +831,9 @@ def create_doc4():
         ['expo-secure-store', 'Безопасное хранение'],
     ])
     
-    add_heading(doc, '3.2. Backend', 2)
+    h = add_heading(doc, 'Backend', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_table(doc, ['Библиотека', 'Назначение'], [
         ['django', 'Web-фреймворк'],
         ['djangorestframework', 'REST API'],
@@ -611,7 +842,7 @@ def create_doc4():
         ['python-dotenv', 'Переменные окружения'],
     ])
     
-    doc.save('C:/Users/Student/Documents/GitHub/DotaTrener/docs/4_текст_программы.docx')
+    doc.save('C:/Users/Sammo Soboi/Documents/GitHub/DotaTrener/docs/4_текст_программы.docx')
 
 def create_doc5():
     doc = Document()
@@ -621,21 +852,33 @@ def create_doc5():
     font.name = 'Times New Roman'
     font.size = Pt(12)
     
-    doc.add_paragraph()
-    title = doc.add_heading('РУКОВОДСТВО ПОЛЬЗОВАТЕЛЯ', 0)
-    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    organization = """АВТОНОМНАЯ НЕКОММЕРЧЕСКАЯ ОРГАНИЗАЦИЯ ПРОФЕССИОНАЛЬНАЯ
+ОБРАЗОВАТЕЛЬНАЯ ОРГАНИЗАЦИЯ МОСКОВСКИЙ МЕЖДУНАРОДНЫЙ КОЛЛЕДЖ
+ЦИФРОВЫХ ТЕХНОЛОГИЙ «АКАДЕМИЯ ТОП»"""
     
-    subtitle = doc.add_paragraph()
-    subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = subtitle.add_run('«DotaTrener — платформа для поиска и взаимодействия с тренерами по Dota 2»')
-    run.font.size = Pt(14)
-    run.font.name = 'Times New Roman'
+    student_name = """Иванов
+Иван
+Иванович"""
     
-    doc.add_page_break()
+    supervisor = """Овсейко Наталья
+Павловна"""
+    
+    add_title_page(
+        doc=doc,
+        organization=organization,
+        title="Руководство пользователя\n«DotaTrener — платформа для поиска и взаимодействия с тренерами по Dota 2»",
+        student_name=student_name,
+        student_group="9/1-РПО-24/1",
+        supervisor=supervisor,
+        city="Оренбург",
+        year="2025"
+    )
     
     add_heading(doc, '1. Введение', 1)
     
-    add_heading(doc, '1.1. Назначение программы', 2)
+    h = add_heading(doc, 'Назначение программы', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, 'DotaTrener — это приложение для поиска и взаимодействия с тренерами по Dota 2.')
     add_paragraph(doc, 'С помощью программы вы можете:')
     add_paragraph(doc, '• Найти тренера по рейтингу, цене и специализации;')
@@ -643,7 +886,9 @@ def create_doc5():
     add_paragraph(doc, '• Общаться с тренерами через мессенджер;')
     add_paragraph(doc, '• Оставлять отзывы о тренерах.')
     
-    add_heading(doc, '1.2. Системные требования', 2)
+    h = add_heading(doc, 'Системные требования', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, 'Для Web-версии:', bold=True)
     add_paragraph(doc, '• Браузер: Chrome 90+, Firefox 88+, Safari 14+, Edge 90+')
     add_paragraph(doc, '• Подключение к интернету')
@@ -654,12 +899,16 @@ def create_doc5():
     
     add_heading(doc, '2. Установка и запуск', 1)
     
-    add_heading(doc, '2.1. Web-версия', 2)
+    h = add_heading(doc, 'Web-версия', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, '1. Откройте браузер')
     add_paragraph(doc, '2. Перейдите по адресу: http://83.222.16.188')
     add_paragraph(doc, '3. Приложение загрузится автоматически')
     
-    add_heading(doc, '2.2. Android-версия', 2)
+    h = add_heading(doc, 'Android-версия', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, '1. Скачайте APK-файл установщика')
     add_paragraph(doc, '2. Откройте файл на устройстве Android')
     add_paragraph(doc, '3. Разрешите установку из неизвестных источников')
@@ -668,7 +917,9 @@ def create_doc5():
     
     add_heading(doc, '3. Работа с программой', 1)
     
-    add_heading(doc, '3.1. Авторизация', 2)
+    h = add_heading(doc, 'Авторизация', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, 'Вход через Steam:', bold=True)
     add_paragraph(doc, '1. На главном экране нажмите "Аккаунт"')
     add_paragraph(doc, '2. Нажмите "Войти через Steam"')
@@ -676,7 +927,9 @@ def create_doc5():
     add_paragraph(doc, '4. Подтвердите авторизацию')
     add_paragraph(doc, '5. Вы будете перенаправлены в приложение')
     
-    add_heading(doc, '3.2. Профиль', 2)
+    h = add_heading(doc, 'Профиль', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, 'Просмотр профиля:', bold=True)
     add_paragraph(doc, '1. Нажмите "Аккаунт"')
     add_paragraph(doc, '2. Вы увидите информацию о профиле')
@@ -692,33 +945,45 @@ def create_doc5():
     add_paragraph(doc, '3. Обрежьте изображение')
     add_paragraph(doc, '4. Нажмите "Обрезать"')
     
-    add_heading(doc, '3.3. Просмотр матчей', 2)
+    h = add_heading(doc, 'Просмотр матчей', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, '1. Нажмите "Мои матчи"')
     add_paragraph(doc, '2. Просмотрите список матчей')
     add_paragraph(doc, '3. Нажмите на матч для деталей')
     
-    add_heading(doc, '3.4. Каталог тренеров', 2)
+    h = add_heading(doc, 'Каталог тренеров', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, '1. Нажмите "Тренеры"')
     add_paragraph(doc, '2. Просмотрите список тренеров')
     add_paragraph(doc, '3. Нажмите на тренера для подробностей')
     
-    add_heading(doc, '3.5. Запись на услугу', 2)
+    h = add_heading(doc, 'Запись на услугу', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, '1. На странице тренера выберите услугу')
     add_paragraph(doc, '2. Нажмите "Связаться"')
     add_paragraph(doc, '3. Автоматически создастся беседа')
     
-    add_heading(doc, '3.6. Чат', 2)
+    h = add_heading(doc, 'Чат', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, '1. Нажмите "Аккаунт" → "Сообщения"')
     add_paragraph(doc, '2. Выберите беседу')
     add_paragraph(doc, '3. Введите текст и нажмите отправить')
     
-    add_heading(doc, '3.7. Отзывы', 2)
+    h = add_heading(doc, 'Отзывы', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, '1. Перейдите на страницу тренера')
     add_paragraph(doc, '2. Выберите оценку (1-5 звёзд)')
     add_paragraph(doc, '3. Введите текст отзыва')
     add_paragraph(doc, '4. Нажмите "Отправить"')
     
-    add_heading(doc, '3.8. Услуги тренера', 2)
+    h = add_heading(doc, 'Услуги тренера', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, 'Добавление услуги:', bold=True)
     add_paragraph(doc, '1. Перейдите в "Мои услуги"')
     add_paragraph(doc, '2. Нажмите "+ Добавить"')
@@ -727,20 +992,26 @@ def create_doc5():
     
     add_heading(doc, '4. Описание интерфейса', 1)
     
-    add_heading(doc, '4.1. Главный экран', 2)
+    h = add_heading(doc, 'Главный экран', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, '• Заголовок: "DOTA TRENER"')
     add_paragraph(doc, '• Рекомендации по героям')
     add_paragraph(doc, '• Сводка матчей (победы, поражения, винрейт)')
     add_paragraph(doc, '• Кнопки навигации: Герои, Мета, Тренеры, Матчи, Аккаунт, Сообщения')
     
-    add_heading(doc, '4.2. Профиль', 2)
+    h = add_heading(doc, 'Профиль', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, '• Аватар и имя пользователя')
     add_paragraph(doc, '• Steam ID')
     add_paragraph(doc, '• Ранг и MMR')
     add_paragraph(doc, '• Информация о тренере')
     add_paragraph(doc, '• Настройки')
     
-    add_heading(doc, '4.3. Чат', 2)
+    h = add_heading(doc, 'Чат', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, '• Заголовок с именем собеседника')
     add_paragraph(doc, '• Сообщения (ваши — справа, чужие — слева)')
     add_paragraph(doc, '• Время отправки')
@@ -748,26 +1019,32 @@ def create_doc5():
     
     add_heading(doc, '5. Возможные ошибки', 1)
     
-    add_heading(doc, '5.1. Ошибки авторизации', 2)
+    h = add_heading(doc, 'Ошибки авторизации', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_table(doc, ['Ошибка', 'Причина', 'Решение'], [
         ['"Не удалось войти через Steam"', 'Проблемы соединением', 'Проверьте подключение к интернету'],
         ['"Steam ID не найден"', 'Аккаунт не привязан', 'Привяжите Steam аккаунт'],
     ])
     
-    add_heading(doc, '5.2. Ошибки загрузки данных', 2)
+    h = add_heading(doc, 'Ошибки загрузки данных', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_table(doc, ['Ошибка', 'Причина', 'Решение'], [
         ['"Ошибка загрузки"', 'Сервер недоступен', 'Подождите и повторите'],
         ['"Нет данных"', 'Stratz токен не установлен', 'Установите токен'],
         ['"Токен истёк"', 'Время жизни токена истекло', 'Войдите заново'],
     ])
     
-    add_heading(doc, '5.3. Ошибки отправки', 2)
+    h = add_heading(doc, 'Ошибки отправки', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_table(doc, ['Ошибка', 'Причина', 'Решение'], [
         ['"Не удалось отправить"', 'Проблемы с сетью', 'Проверьте подключение'],
         ['"Сообщение пустое"', 'Не введён текст', 'Введите текст'],
     ])
     
-    doc.save('C:/Users/Student/Documents/GitHub/DotaTrener/docs/5_руководство_пользователя.docx')
+    doc.save('C:/Users/Sammo Soboi/Documents/GitHub/DotaTrener/docs/5_руководство_пользователя.docx')
 
 def create_doc6():
     doc = Document()
@@ -777,21 +1054,33 @@ def create_doc6():
     font.name = 'Times New Roman'
     font.size = Pt(12)
     
-    doc.add_paragraph()
-    title = doc.add_heading('РУКОВОДСТВО ПРОГРАММИСТА', 0)
-    title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    organization = """АВТОНОМНАЯ НЕКОММЕРЧЕСКАЯ ОРГАНИЗАЦИЯ ПРОФЕССИОНАЛЬНАЯ
+ОБРАЗОВАТЕЛЬНАЯ ОРГАНИЗАЦИЯ МОСКОВСКИЙ МЕЖДУНАРОДНЫЙ КОЛЛЕДЖ
+ЦИФРОВЫХ ТЕХНОЛОГИЙ «АКАДЕМИЯ ТОП»"""
     
-    subtitle = doc.add_paragraph()
-    subtitle.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = subtitle.add_run('«DotaTrener — платформа для поиска и взаимодействия с тренерами по Dota 2»')
-    run.font.size = Pt(14)
-    run.font.name = 'Times New Roman'
+    student_name = """Иванов
+Иван
+Иванович"""
     
-    doc.add_page_break()
+    supervisor = """Овсейко Наталья
+Павловна"""
+    
+    add_title_page(
+        doc=doc,
+        organization=organization,
+        title="Руководство программиста\n«DotaTrener — платформа для поиска и взаимодействия с тренерами по Dota 2»",
+        student_name=student_name,
+        student_group="9/1-РПО-24/1",
+        supervisor=supervisor,
+        city="Оренбург",
+        year="2025"
+    )
     
     add_heading(doc, '1. Структура проекта', 1)
     
-    add_heading(doc, '1.1. Общая структура', 2)
+    h = add_heading(doc, 'Общая структура', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, 'DotaTrener/')
     add_paragraph(doc, '├── client/ — Frontend (React Native + Expo)')
     add_paragraph(doc, '│   ├── app/ — Экраны (18 файлов)')
@@ -810,7 +1099,9 @@ def create_doc6():
     add_paragraph(doc, '│   └── requirements.txt')
     add_paragraph(doc, '└── docs/ — Документация')
     
-    add_heading(doc, '1.2. Описание каталогов', 2)
+    h = add_heading(doc, 'Описание каталогов', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_table(doc, ['Каталог', 'Назначение'], [
         ['client/app/', 'Экраны приложения (Expo Router)'],
         ['client/src/components/', 'Переиспользуемые UI-компоненты'],
@@ -821,7 +1112,9 @@ def create_doc6():
     
     add_heading(doc, '2. Используемые библиотеки', 1)
     
-    add_heading(doc, '2.1. Frontend', 2)
+    h = add_heading(doc, 'Frontend', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_table(doc, ['Библиотека', 'Версия', 'Назначение'], [
         ['React', '19.2.3', 'UI-библиотека'],
         ['React Native', '0.85.3', 'Кроссплатформенный UI'],
@@ -833,7 +1126,9 @@ def create_doc6():
         ['Expo SecureStore', '56.0.4', 'Хранение данных'],
     ])
     
-    add_heading(doc, '2.2. Backend', 2)
+    h = add_heading(doc, 'Backend', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_table(doc, ['Библиотека', 'Версия', 'Назначение'], [
         ['Python', '3.10+', 'Язык программирования'],
         ['Django', '4.2+', 'Web-фреймворк'],
@@ -844,14 +1139,18 @@ def create_doc6():
     
     add_heading(doc, '3. Настройка окружения', 1)
     
-    add_heading(doc, '3.1. Требования к системе', 2)
+    h = add_heading(doc, 'Требования к системе', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, '• ОС: Windows 10+, macOS 10.14+, Ubuntu 20.04+')
     add_paragraph(doc, '• Node.js: 18.0+')
     add_paragraph(doc, '• Python: 3.10+')
     add_paragraph(doc, '• Git: 2.30+')
     add_paragraph(doc, '• Диск: 10 ГБ+')
     
-    add_heading(doc, '3.2. Установка зависимостей', 2)
+    h = add_heading(doc, 'Установка зависимостей', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, 'Клиент (Frontend):', bold=True)
     add_paragraph(doc, 'git clone https://github.com/username/DotaTrener.git')
     add_paragraph(doc, 'cd DotaTrener/client')
@@ -867,7 +1166,9 @@ def create_doc6():
     add_paragraph(doc, 'python manage.py createsuperuser')
     add_paragraph(doc, 'python manage.py runserver')
     
-    add_heading(doc, '3.3. Переменные окружения', 2)
+    h = add_heading(doc, 'Переменные окружения', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, 'Файл .env должен содержать:')
     add_paragraph(doc, 'DEBUG=True')
     add_paragraph(doc, 'SECRET_KEY=your-secret-key')
@@ -876,7 +1177,9 @@ def create_doc6():
     
     add_heading(doc, '4. Сборка и модификация', 1)
     
-    add_heading(doc, '4.1. Сборка клиента', 2)
+    h = add_heading(doc, 'Сборка клиента', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, 'Web-версия:', bold=True)
     add_paragraph(doc, 'cd client')
     add_paragraph(doc, 'npm run web')
@@ -887,31 +1190,43 @@ def create_doc6():
     add_paragraph(doc, 'npm run android')
     add_paragraph(doc, 'eas build --platform android --profile production')
     
-    add_heading(doc, '4.2. Добавление нового экрана', 2)
+    h = add_heading(doc, 'Добавление нового экрана', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, '1. Создайте файл в client/app/')
     add_paragraph(doc, '2. Добавьте навигацию в client/app/index.tsx')
     add_paragraph(doc, '3. Импортируйте компоненты из @/lib/theme')
     
-    add_heading(doc, '4.3. Добавление нового API-эндпоинта', 2)
+    h = add_heading(doc, 'Добавление нового API-эндпоинта', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, '1. Добавьте маршрут в coaching/urls.py')
     add_paragraph(doc, '2. Создайте представление в coaching/views.py')
     add_paragraph(doc, '3. Используйте на клиенте с помощью Axios')
     
-    add_heading(doc, '5. Архитектура приложения', 1)
+    h = add_heading(doc, '5. Архитектура приложения', 1)
     
-    add_heading(doc, '5.1. Паттерн проектирования', 2)
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    
+    h = add_heading(doc, 'Паттерн проектирования', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, 'Приложение использует паттерн Model-View-Controller (MVC):')
     add_paragraph(doc, '• Model (Django ORM): coaching/models.py')
     add_paragraph(doc, '• View (Django REST): coaching/views.py')
     add_paragraph(doc, '• Controller (React Native): client/app/*.tsx')
     
-    add_heading(doc, '5.2. Потоки данных', 2)
+    h = add_heading(doc, 'Потоки данных', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, 'Клиент (React) ↔ HTTP/JSON ↔ Сервер (Django) ↔ SQLite/PostgreSQL')
     add_paragraph(doc, 'Сервер (Django) ↔ GraphQL ↔ Stratz API')
     
     add_heading(doc, '6. Тестирование', 1)
     
-    add_heading(doc, '6.1. Запуск тестов', 2)
+    h = add_heading(doc, 'Запуск тестов', 2)
+    
+    h.alignment = WD_ALIGN_PARAGRAPH.CENTER
     add_paragraph(doc, 'Backend:', bold=True)
     add_paragraph(doc, 'cd DotaTrener')
     add_paragraph(doc, 'python manage.py test')
@@ -938,13 +1253,21 @@ def create_doc6():
     add_paragraph(doc, '• test: — тесты')
     add_paragraph(doc, '• chore: — сборка')
     
-    doc.save('C:/Users/Student/Documents/GitHub/DotaTrener/docs/6_руководство_программиста.docx')
+    doc.save('C:/Users/Sammo Soboi/Documents/GitHub/DotaTrener/docs/6_руководство_программиста.docx')
 
 if __name__ == '__main__':
-    create_doc1()
-    create_doc2()
-    create_doc3()
-    create_doc4()
-    create_doc5()
-    create_doc6()
-    print("All DOCX files created successfully!")
+    doc = Document()
+    add_title_page(
+        doc=doc,
+        organization="АВТОНОМНАЯ НЕКОММЕРЧЕСКАЯ ОРГАНИЗАЦИЯ ПРОФЕССИОНАЛЬНАЯ\nОБРАЗОВАТЕЛЬНАЯ ОРГАНИЗАЦИЯ МОСКОВСКИЙ МЕЖДУНАРОДНЫЙ КОЛЛЕДЖ\nЦИФРОВЫХ ТЕХНОЛОГИЙ «АКАДЕМИЯ ТОП»",
+        title="Техническая документация\nк проекту\n«DotaTrener — платформа для поиска и взаимодействия с тренерами по Dota 2»",
+        student_name="Иванов\nИван\nИванович",
+        student_group="9/1-РПО-24/1",
+        supervisor="Овсейко Наталья\nПавловна",
+        city="Оренбург",
+        year="2025"
+    )
+    add_heading(doc, 'ТЕХНИЧЕСКОЕ ЗАДАНИЕ', 0)
+    add_paragraph(doc, 'Содержимое документа...')
+    doc.save('C:/Users/Sammo Soboi/Documents/GitHub/DotaTrener/docs/1_техническое_задание.docx')
+    print("Title page created successfully!")
