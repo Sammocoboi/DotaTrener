@@ -13,27 +13,11 @@ def auth_callback_view(request):
     username = request.GET.get("username", "")
     next_page = request.GET.get("next", "")
     return_to = request.GET.get("return_to", "")
-    app_link = f"dotatrener://auth-callback?token={token}&steam_id={steam_id}&username={username}&next={next_page}"
-    hash_params = f"token={token}&steam_id={steam_id}&next={next_page}"
     if return_to:
-        web_redirect = f"{return_to}/#{hash_params}"
-        redirect = web_redirect
+        redirect = f"{return_to}/#token={token}&steam_id={steam_id}&next={next_page}"
     else:
-        redirect = app_link
-    html = f"""<!DOCTYPE html>
-<html>
-<head>
-<meta charset="utf-8">
-<title>Vkhod cherez Steam</title>
-</head>
-<body>
-<script>
-window.location.href = '{redirect}';
-</script>
-<p>Perenapravlenie...</p>
-</body>
-</html>"""
-    return HttpResponse(html)
+        redirect = f"dotatrener://auth-callback?token={token}&steam_id={steam_id}&username={username}&next={next_page}"
+    return HttpResponseRedirect(redirect)
 
 
 urlpatterns = [

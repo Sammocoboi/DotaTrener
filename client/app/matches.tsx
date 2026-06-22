@@ -67,13 +67,7 @@ export default function MatchesScreen() {
               if (Platform.OS === "web") {
                 window.location.href = url;
               } else {
-                const result = await WebBrowser.openAuthSessionAsync(url, "dotatrener://auth-callback");
-                if (result?.type === "success" && result.url) {
-                  const params = new URL(result.url).searchParams;
-                  const t = params.get("token");
-                  const s = params.get("steam_id");
-                  if (t) { saveToken(t, s); router.replace("/profile"); }
-                }
+                await WebBrowser.openAuthSessionAsync(url, "dotatrener://auth-callback");
               }
             }}
             style={{ backgroundColor: colors.orange, padding: 12, borderRadius: 8 }}

@@ -1,8 +1,20 @@
 import { useEffect, useState } from "react";
 import { Stack, router, useSegments } from 'expo-router';
-import { Platform } from "react-native";
+import { Platform, Linking } from "react-native";
 import { colors } from '@/lib/theme';
 import { initToken, getToken, saveToken } from '@/lib/token-storage';
+
+function handleDeepLink(url: string) {
+  if (!url.startsWith("dotatrener://auth-callback")) return;
+  const params = new URL(url).searchParams;
+  const token = params.get("token");
+  const steam_id = params.get("steam_id");
+  if (token) {
+    saveToken(token, steam_id);
+    const next = params.get("next") || "profile";
+    router.replace(next as any);
+  }
+}
 
 function getUrlParams(): Record<string, string> {
   if (Platform.OS !== "web" || typeof window === "undefined") return {};
@@ -30,6 +42,9 @@ export default function Layout() {
   const segments = useSegments();
 
   useEffect(() => {
+    const sub = Linking.addEventListener("url", (event) => {
+      if (event.url) handleDeepLink(event.url);
+    });
     initToken().then(() => {
       const urlParams = getUrlParams();
       const urlToken = urlParams.token;
@@ -48,6 +63,7 @@ export default function Layout() {
 
       setReady(true);
     });
+    return () => sub.remove();
   }, []);
 
   useEffect(() => {

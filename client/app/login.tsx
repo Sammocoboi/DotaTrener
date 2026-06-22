@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { View, Text, TextInput, Pressable, Alert } from "react-native";
-import { Platform } from "react-native";
+import { View, Text, TextInput, Pressable, Alert, Platform } from "react-native";
 import { router } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { colors } from "@/lib/theme";
@@ -49,16 +48,7 @@ export default function LoginScreen() {
       window.location.href = url;
     } else {
       const url = `${API_ROOT}/api/auth/steam/login/?next=profile`;
-      const result = await WebBrowser.openAuthSessionAsync(url, "dotatrener://auth-callback");
-      if (result?.type === "success" && result.url) {
-        const params = new URL(result.url).searchParams;
-        const token = params.get("token");
-        const steam_id = params.get("steam_id");
-        if (token) {
-          saveToken(token, steam_id);
-          router.replace("/profile");
-        }
-      }
+      await WebBrowser.openAuthSessionAsync(url, "dotatrener://auth-callback");
     }
   };
 
