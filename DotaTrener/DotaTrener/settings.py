@@ -138,7 +138,8 @@ REST_FRAMEWORK = {
     ],
 }
 
-# 4️⃣ Внешние API (Stratz)
+# 4️⃣ Внешние API
+STEAM_WEB_API_KEY = os.getenv('STEAM_WEB_API_KEY', '')
 STRATZ_API_KEY = os.getenv('STRATZ_API_KEY', '')
 STRATZ_API_URL = os.getenv('STRATZ_API_URL', 'https://api.stratz.com/graphql')
 STRATZ_REST_URL = os.getenv('STRATZ_REST_URL', 'https://api.stratz.com/api/v1')

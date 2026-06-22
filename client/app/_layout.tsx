@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Stack, router } from 'expo-router';
+import { Stack, router, useSegments } from 'expo-router';
 import { Platform } from "react-native";
 import { colors } from '@/lib/theme';
 import { initToken, getToken, saveToken } from '@/lib/token-storage';
@@ -23,8 +23,11 @@ function getUrlParams(): Record<string, string> {
   return {};
 }
 
+const publicRoutes = new Set(["login", "register", "auth-callback", "steam-link"]);
+
 export default function Layout() {
   const [ready, setReady] = useState(false);
+  const segments = useSegments();
 
   useEffect(() => {
     initToken().then(() => {
@@ -43,12 +46,16 @@ export default function Layout() {
         return;
       }
 
-      if (!getToken()) {
-        router.replace("/login");
-      }
       setReady(true);
     });
   }, []);
+
+  useEffect(() => {
+    if (!ready) return;
+    if (getToken()) return;
+    if (publicRoutes.has(segments[0])) return;
+    router.replace("/login");
+  }, [ready, segments]);
 
   return <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }} />;
 }

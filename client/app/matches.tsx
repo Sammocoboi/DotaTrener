@@ -31,9 +31,10 @@ export default function MatchesScreen() {
   const fetchMatches = async () => {
     setLoading(true);
     setError(null);
+    const tok = token || getToken();
     try {
       const res = await axios.get(`${API}/my-matches/?limit=20`, {
-        headers: token ? { Authorization: `Token ${token}` } : {},
+        headers: tok ? { Authorization: `Token ${tok}` } : {},
       });
       setMatches(res.data.matches);
       setRecord({ wins: res.data.wins || 0, losses: res.data.losses || 0 });
@@ -45,6 +46,10 @@ export default function MatchesScreen() {
   };
 
   useEffect(() => {
+    if (!token && !getToken()) {
+      router.replace("/login");
+      return;
+    }
     fetchMatches();
   }, []);
 
