@@ -28,7 +28,16 @@ export default function SteamLink() {
     }
     setLoading(true);
     try {
-      await WebBrowser.openAuthSessionAsync(url, "client://auth-callback");
+      const result = await WebBrowser.openAuthSessionAsync(url, "dotatrener://auth-callback");
+      if (result?.type === "success" && result.url) {
+        const params = new URL(result.url).searchParams;
+        const t = params.get("token");
+        const s = params.get("steam_id");
+        if (t) {
+          await saveToken(t, s);
+          router.replace({ pathname: "matches" as any, params: { token: t, steam_id: s || "" } });
+        }
+      }
     } catch (e) {
       console.error(e);
     } finally {

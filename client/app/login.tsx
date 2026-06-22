@@ -42,14 +42,23 @@ export default function LoginScreen() {
     }
   };
 
-  const handleSteamLogin = () => {
+  const handleSteamLogin = async () => {
     if (Platform.OS === "web") {
       const returnUrl = encodeURIComponent(window.location.origin);
       const url = `${API_ROOT}/api/auth/steam/login/?next=profile&return_to=${returnUrl}`;
       window.location.href = url;
     } else {
       const url = `${API_ROOT}/api/auth/steam/login/?next=profile`;
-      WebBrowser.openAuthSessionAsync(url, "client://auth-callback");
+      const result = await WebBrowser.openAuthSessionAsync(url, "dotatrener://auth-callback");
+      if (result?.type === "success" && result.url) {
+        const params = new URL(result.url).searchParams;
+        const token = params.get("token");
+        const steam_id = params.get("steam_id");
+        if (token) {
+          saveToken(token, steam_id);
+          router.replace("/profile");
+        }
+      }
     }
   };
 

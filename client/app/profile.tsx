@@ -319,12 +319,18 @@ export default function ProfileScreen() {
               <Row label="Steam ID" value={profile.player.steam_account_id ? String(profile.player.steam_account_id) : "Не привязан"} />
               {!profile.player.steam_account_id ? (
                 <Pressable
-                  onPress={() => {
+                  onPress={async () => {
                     const url = `${API_ROOT}/api/auth/steam/login/?next=profile`;
                     if (Platform.OS === "web") {
                       window.location.href = url;
                     } else {
-                      WebBrowser.openAuthSessionAsync(url, "client://auth-callback");
+                      const result = await WebBrowser.openAuthSessionAsync(url, "dotatrener://auth-callback");
+                      if (result?.type === "success" && result.url) {
+                        const params = new URL(result.url).searchParams;
+                        const t = params.get("token");
+                        const s = params.get("steam_id");
+                        if (t) { saveToken(t, s); router.replace("/profile"); }
+                      }
                     }
                   }}
                   style={{ backgroundColor: colors.orange, padding: 10, borderRadius: 8, marginTop: 8, alignItems: "center" }}

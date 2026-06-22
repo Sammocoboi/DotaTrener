@@ -13,11 +13,13 @@ def auth_callback_view(request):
     username = request.GET.get("username", "")
     next_page = request.GET.get("next", "")
     return_to = request.GET.get("return_to", "")
-    app_link = f"client://auth-callback?token={token}&steam_id={steam_id}&username={username}&next={next_page}"
+    app_link = f"dotatrener://auth-callback?token={token}&steam_id={steam_id}&username={username}&next={next_page}"
     hash_params = f"token={token}&steam_id={steam_id}&next={next_page}"
-    frontend_url = getattr(settings, "FRONTEND_URL", "http://localhost:8081")
-    web_redirect = f"{return_to}/#{hash_params}" if return_to else f"{frontend_url}/#{hash_params}"
-    has_return_to = bool(return_to)
+    if return_to:
+        web_redirect = f"{return_to}/#{hash_params}"
+        redirect = web_redirect
+    else:
+        redirect = app_link
     html = f"""<!DOCTYPE html>
 <html>
 <head>
@@ -26,14 +28,7 @@ def auth_callback_view(request):
 </head>
 <body>
 <script>
-(function(){{
-  var hasReturnTo = { 'true' if has_return_to else 'false' };
-  if (hasReturnTo) {{
-    window.location.href = '{web_redirect}';
-  }} else {{
-    window.location.href = '{app_link}';
-  }}
-}})();
+window.location.href = '{redirect}';
 </script>
 <p>Perenapravlenie...</p>
 </body>

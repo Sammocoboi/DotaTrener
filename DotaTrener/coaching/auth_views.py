@@ -59,13 +59,17 @@ def _get_or_create_user(steam_id: str) -> tuple[User, bool]:
     steam_id_64 = int(steam_id)
     account_id = _steam64_to_account_id(steam_id_64)
 
+    from coaching.models import Player
+
+    existing_player = Player.objects.filter(steam_account_id=account_id).select_related('user').first()
+    if existing_player:
+        return existing_player.user, False
+
     username = f"steam_{steam_id_64}"
     user, created = User.objects.get_or_create(
         username=username,
         defaults={"first_name": f"Steam {steam_id_64}"},
     )
-
-    from coaching.models import Player
 
     player, _ = Player.objects.get_or_create(user=user)
     if not player.steam_account_id:

@@ -358,7 +358,7 @@ class StratzClient:
                     logger.warning("Stratz GraphQL: %s", data["errors"][0].get("message", ""))
                     return None
                 return data.get("data")
-            except requests.RequestException as exc:
+            except (requests.RequestException, ValueError) as exc:
                 logger.error("Stratz request failed: %s", exc)
                 time.sleep(1)
         return None
@@ -889,6 +889,7 @@ class StratzClient:
               id
               didRadiantWin
               startDateTime
+              durationSeconds
               gameMode
               players {{
                 steamAccountId

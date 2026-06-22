@@ -17,5 +17,5 @@ export function rankIconUrl(seasonRank: number): string {
   if (!seasonRank || seasonRank <= 0) return "";
   const medalId = Math.floor(seasonRank / 10);
   const star = seasonRank % 10;
-  return `https://cdn.stratz.com/images/dota2/rank/rank_icon_${medalId}_${star}.png`;
+  return `http://83.222.16.188/api/coaching/rank-icon/${medalId}/${star}/`;
 }

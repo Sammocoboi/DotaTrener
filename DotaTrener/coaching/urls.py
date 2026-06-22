@@ -35,4 +35,5 @@ urlpatterns = [
     path('coaches/<int:coach_id>/videos/', views.coach_videos, name='coach-videos'),
     path('my-videos/', views.my_videos, name='my-videos'),
     path('my-videos/<int:video_id>/', views.my_video_detail, name='my-video-detail'),
+    path('rank-icon/<int:medal_id>/<int:star>/', views.rank_icon, name='rank-icon'),
 ]

@@ -5,7 +5,8 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action, api_view, permission_classes as perm
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
-
+from django.db import IntegrityError
+from django.http import FileResponse, HttpResponse
 logger = logging.getLogger(__name__)
 
 from django.utils import timezone
@@ -130,102 +131,120 @@ def set_stratz_token(request):
 @perm([permissions.IsAuthenticated])
 def fetch_my_matches(request):
     """Получить историю матчей залогиненного игрока из Stratz"""
-    player = getattr(request.user, "player_profile", None)
-    if not player or not player.steam_account_id:
-        return Response(
-            {"error": "Steam Account ID не привязан. Сначала POST /api/coaching/link-steam/"},
-            status=400,
-        )
-
-    limit = int(request.query_params.get("limit", 20))
-
-    from stratz_meta.services import StratzClient
-
-    stratz_token = getattr(player, "stratz_token", "") or ""
-    client = StratzClient(token=stratz_token if stratz_token else None)
-    profile = client.fetch_player_profile(player.steam_account_id)
-    matches = client.fetch_player_matches(player.steam_account_id, take=limit)
-
-    import logging
-    logger = logging.getLogger(__name__)
-    logger.warning("Stratz profile for %s: %s", player.steam_account_id, profile)
-    logger.warning("Stratz matches for %s: %d found", player.steam_account_id, len(matches))
-
-    hero_map = {}
-    for m in matches:
-        for p in m.get("players", []):
-            hid = p.get("heroId")
-            if hid and hid not in hero_map:
-                hero_map[hid] = Hero.objects.filter(steam_id=int(hid)).first()
-
-    results = []
-    for m in matches:
-        players = m.get("players", [])
-        user_steam_id = player.steam_account_id
-        my_player = next(
-            (pl for pl in players if pl.get("steamAccountId") == user_steam_id),
-            players[0] if players else {},
-        )
-        hero = hero_map.get(my_player.get("heroId"))
-
-        duration = m.get("duration", 0)
-        side = "radiant" if my_player.get("isRadiant") else "dire"
-        won = (my_player.get("isRadiant") and m.get("didRadiantWin")) or (
-            not my_player.get("isRadiant") and not m.get("didRadiantWin")
-        )
-        result = "win" if won else "loss"
-        played = m.get("startDateTime", 0)
-
-        from django.utils import timezone
-        import datetime
-
-        played_at = timezone.now()
-        if played:
-            played_at = timezone.make_aware(
-                datetime.datetime.fromtimestamp(played)
+    try:
+        player = getattr(request.user, "player_profile", None)
+        if not player or not player.steam_account_id:
+            return Response(
+                {"error": "Steam Account ID не привязан. Сначала POST /api/coaching/link-steam/"},
+                status=400,
             )
 
-        items = [my_player.get(f"item{j}Id") for j in range(6)]
+        limit = int(request.query_params.get("limit", 20))
 
-        match_obj, created = Match.objects.update_or_create(
-            match_id=str(m.get("id")),
-            player=player,
-            defaults={
-                "hero": hero,
-                "player_side": side,
+        from stratz_meta.services import StratzClient
+
+        stratz_token = getattr(player, "stratz_token", "") or ""
+        try:
+            client = StratzClient(token=stratz_token if stratz_token else None)
+        except ValueError as e:
+            logger.error("StratzClient init failed for player %s: %s", player.steam_account_id, e)
+            return Response(
+                {"error": "Stratz API токен не настроен. Введите токен в настройках профиля."},
+                status=400,
+            )
+        profile = client.fetch_player_profile(player.steam_account_id)
+        matches = client.fetch_player_matches(player.steam_account_id, take=limit)
+
+        logger.warning("Stratz profile for %s: %s", player.steam_account_id, profile)
+        logger.warning("Stratz matches for %s: %d found", player.steam_account_id, len(matches))
+
+        hero_map = {}
+        for m in matches:
+            for p in m.get("players", []):
+                hid = p.get("heroId")
+                if hid and hid not in hero_map:
+                    hero_map[hid] = Hero.objects.filter(steam_id=int(hid)).first()
+
+        results = []
+        for m in matches:
+            players = m.get("players", [])
+            user_steam_id = player.steam_account_id
+            my_player = next(
+                (pl for pl in players if pl.get("steamAccountId") == user_steam_id),
+                players[0] if players else {},
+            )
+            hero = hero_map.get(my_player.get("heroId"))
+
+            duration = m.get("durationSeconds", 0)
+            side = "radiant" if my_player.get("isRadiant") else "dire"
+            won = (my_player.get("isRadiant") and m.get("didRadiantWin")) or (
+                not my_player.get("isRadiant") and not m.get("didRadiantWin")
+            )
+            result = "win" if won else "loss"
+            played = m.get("startDateTime", 0)
+
+            from django.utils import timezone
+            import datetime
+
+            played_at = timezone.now()
+            if played:
+                played_at = timezone.make_aware(
+                    datetime.datetime.fromtimestamp(played)
+                )
+
+            items = [my_player.get(f"item{j}Id") for j in range(6)]
+
+            try:
+                match_obj, created = Match.objects.update_or_create(
+                    match_id=str(m.get("id")),
+                    player=player,
+                    defaults={
+                        "hero": hero,
+                        "player_side": side,
+                        "result": result,
+                        "lobby_type": "ranked",
+                        "duration_seconds": duration,
+                        "played_at": played_at,
+                        "kills": my_player.get("kills", 0),
+                        "deaths": my_player.get("deaths", 0),
+                        "assists": my_player.get("assists", 0),
+                        "gpm": my_player.get("goldPerMinute", 0),
+                        "xpm": my_player.get("experiencePerMinute", 0),
+                        "last_hits": my_player.get("numLastHits", 0),
+                        "denies": my_player.get("numDenies", 0),
+                        "api_data": m,
+                    },
+                )
+            except IntegrityError:
+                match_obj = None
+                created = False
+                logger.warning("Match %s already exists for another player, skipping", m.get("id"))
+
+            results.append({
+                "match_id": m.get("id"),
+                "hero": hero.localized_name if hero else f"Hero {my_player.get('heroId')}",
                 "result": result,
-                "lobby_type": "ranked",
-                "duration_seconds": duration,
-                "played_at": played_at,
-                "kills": my_player.get("kills", 0),
-                "deaths": my_player.get("deaths", 0),
-                "assists": my_player.get("assists", 0),
+                "side": side,
+                "duration": duration,
+                "kda": f"{my_player.get('kills',0)}/{my_player.get('deaths',0)}/{my_player.get('assists',0)}",
                 "gpm": my_player.get("goldPerMinute", 0),
                 "xpm": my_player.get("experiencePerMinute", 0),
-                "last_hits": my_player.get("numLastHits", 0),
-                "denies": my_player.get("numDenies", 0),
-                "api_data": m,
-            },
-        )
+                "created": created,
+            })
 
-        results.append({
-            "match_id": m.get("id"),
-            "hero": hero.localized_name if hero else f"Hero {my_player.get('heroId')}",
-            "result": result,
-            "side": side,
-            "duration": duration,
-            "kda": f"{my_player.get('kills',0)}/{my_player.get('deaths',0)}/{my_player.get('assists',0)}",
-            "gpm": my_player.get("goldPerMinute", 0),
-            "xpm": my_player.get("experiencePerMinute", 0),
-            "created": created,
+        return Response({
+            "steam_account_id": player.steam_account_id,
+            "wins": profile.get("winCount") if profile else 0,
+            "losses": profile.get("loseCount") if profile else 0,
+            "matches": results,
         })
 
-    return Response({
-        "steam_account_id": player.steam_account_id,
-        "wins": profile.get("winCount") if profile else 0,
-        "losses": profile.get("loseCount") if profile else 0,
-        "matches": results,
-    })
+    except Exception as e:
+        logger.exception("fetch_my_matches failed for user %s", request.user.id)
+        return Response(
+            {"error": f"Ошибка загрузки матчей: {e}"},
+            status=500,
+        )
 
 
 @api_view(["GET"])
@@ -695,97 +714,127 @@ def coach_videos(request, coach_id):
 @api_view(["GET"])
 @perm([permissions.IsAuthenticatedOrReadOnly])
 def hero_builds(request, hero_id):
-    """Сборки героя из Stratz API (предметы + скиллы)"""
+    """Сборки героя из Stratz / OpenDota (предметы + скиллы + таланты)"""
     from django.core.cache import cache
     from stratz_meta.services import StratzClient
+    from stratz_meta.services.opendota_client import OpenDotaClient
     from coaching.models import Hero, Item, Ability
 
     hero = Hero.objects.filter(steam_id=int(hero_id)).first()
     if not hero:
         return Response({"error": "Герой не найден"}, status=404)
 
-    cache_key = f"hero_builds:v2:{hero_id}:DIVINE_IMMORTAL"
+    cache_key = f"hero_builds:v3:{hero_id}"
     cached = cache.get(cache_key)
     if cached:
         return Response(cached)
 
-    client = StratzClient()
-    client.load_item_catalog()
-    client.load_ability_catalog()
+    def _item_image(iid):
+        return Item.objects.filter(steam_id=iid).values_list("image_url", flat=True).first() or ""
 
-    item_builds = client.fetch_hero_builds(int(hero_id), "item", take=20)
-    skill_builds = client.fetch_hero_builds(int(hero_id), "skill", take=10)
-    talent_builds = client.fetch_hero_talents(int(hero_id))
+    def _ability_image(aid):
+        return Ability.objects.filter(steam_id=aid).values_list("image_url", flat=True).first() or ""
 
-    def enrich_items(builds):
-        result = []
-        for b in builds:
-            seq = []
-            for entry in b.get("sequence", []):
-                iid = entry.get("id")
-                item_obj = Item.objects.filter(steam_id=iid).first() if iid else None
-                seq.append({
-                    "id": iid,
-                    "name": entry.get("name") or client.get_item_name(iid) if iid else "",
-                    "image": item_obj.image_url if item_obj else client.get_item_image_url(iid) if iid else "",
-                    "time": entry.get("time"),
+    item_builds = []
+    skill_builds = []
+    talent_builds = []
+
+    try:
+        client = StratzClient()
+        client.load_item_catalog()
+        client.load_ability_catalog()
+
+        item_builds = client.fetch_hero_builds(int(hero_id), "item", take=20)
+        skill_builds = client.fetch_hero_builds(int(hero_id), "skill", take=10)
+        talent_builds = client.fetch_hero_talents(int(hero_id))
+
+        def enrich_items(builds):
+            result = []
+            for b in builds:
+                seq = []
+                for entry in b.get("sequence", []):
+                    iid = entry.get("id")
+                    seq.append({
+                        "id": iid,
+                        "name": entry.get("name") or client.get_item_name(iid) if iid else "",
+                        "image": _item_image(iid) or client.get_item_image_url(iid) if iid else "",
+                        "time": entry.get("time"),
+                    })
+                result.append({
+                    "build_type": "item",
+                    "sequence": seq,
+                    "win_rate": b.get("win_rate", 0),
+                    "games": b.get("games", 0),
+                    "role": b.get("role", ""),
                 })
-            result.append({
-                "build_type": "item",
-                "sequence": seq,
-                "win_rate": b.get("win_rate", 0),
-                "games": b.get("games", 0),
-                "role": b.get("role", ""),
-            })
-        return result
+            return result
 
-    def enrich_skills(builds):
-        result = []
-        for b in builds:
-            seq = []
-            for entry in b.get("sequence", []):
-                aid = entry.get("id")
+        def enrich_skills(builds):
+            result = []
+            for b in builds:
+                seq = []
+                for entry in b.get("sequence", []):
+                    aid = entry.get("id")
+                    seq.append({
+                        "id": aid,
+                        "name": entry.get("name") or client.get_ability_name(aid) if aid else "",
+                        "image": _ability_image(aid) or client.get_ability_image_url(aid) if aid else "",
+                    })
+                result.append({
+                    "build_type": "skill",
+                    "sequence": seq,
+                    "win_rate": b.get("win_rate", 0),
+                    "games": b.get("games", 0),
+                })
+            return result
+
+        def enrich_talents(talents):
+            result = []
+            for t in talents:
+                aid = t["abilityId"]
                 ability_obj = Ability.objects.filter(steam_id=aid).first() if aid else None
-                seq.append({
-                    "id": aid,
-                    "name": entry.get("name") or client.get_ability_name(aid) if aid else "",
-                    "image": ability_obj.image_url if ability_obj else client.get_ability_image_url(aid) if aid else "",
+                result.append({
+                    "abilityId": aid,
+                    "tier": t["tier"],
+                    "slot": t["slot"],
+                    "name": ability_obj.display_name if ability_obj else t.get("name", f"Ability {aid}"),
+                    "image": ability_obj.image_url if ability_obj else (client.get_ability_image_url(aid) if aid else ""),
+                    "matchCount": t.get("matchCount", 0),
+                    "win_rate": t.get("win_rate", 0),
+                    "pick_rate": t.get("pick_rate", 0),
                 })
-            result.append({
-                "build_type": "skill",
-                "sequence": seq,
-                "win_rate": b.get("win_rate", 0),
-                "games": b.get("games", 0),
-            })
-        return result
+            return result
 
-    def enrich_talents(talents):
-        result = []
-        for t in talents:
-            aid = t["abilityId"]
-            ability_obj = Ability.objects.filter(steam_id=aid).first() if aid else None
-            result.append({
-                "abilityId": aid,
-                "tier": t["tier"],
-                "slot": t["slot"],
-                "name": ability_obj.display_name if ability_obj else t.get("name", f"Ability {aid}"),
-                "image": ability_obj.image_url if ability_obj else (client.get_ability_image_url(aid) if aid else ""),
-                "matchCount": t.get("matchCount", 0),
-                "win_rate": t.get("win_rate", 0),
-                "pick_rate": t.get("pick_rate", 0),
-            })
-        return result
+        stratz_result = {
+            "hero_id": hero.steam_id,
+            "hero_name": hero.localized_name,
+            "hero_image": hero.image_url,
+            "item_builds": enrich_items(item_builds),
+            "skill_builds": enrich_skills(skill_builds),
+            "talent_builds": enrich_talents(talent_builds),
+            "source": "stratz",
+        }
+        cache.set(cache_key, stratz_result, 60 * 60)
+        return Response(stratz_result)
 
-    result = {
+    except Exception as e:
+        logger.warning("Stratz builds failed for hero %s: %s, falling back to OpenDota", hero_id, e)
+
+    od = OpenDotaClient()
+    item_builds = od.build_item_builds_from_popularity(int(hero_id))
+    skill_builds = od.build_skill_build_from_hero_abilities(int(hero_id))
+
+    od_result = {
         "hero_id": hero.steam_id,
         "hero_name": hero.localized_name,
         "hero_image": hero.image_url,
-        "item_builds": enrich_items(item_builds),
-        "skill_builds": enrich_skills(skill_builds),
-        "talent_builds": enrich_talents(talent_builds),
+        "item_builds": item_builds,
+        "skill_builds": skill_builds,
+        "talent_builds": [],
+        "source": "opendota",
     }
-    cache.set(cache_key, result, 60 * 60)
-    return Response(result)
+    cache.set(cache_key, od_result, 60 * 60)
+    return Response(od_result)
 
 
 MATCH_DETAIL_QUERY = """{
@@ -1152,3 +1201,18 @@ def conversation_detail(request, conv_id):
             "created_at": m.created_at,
         } for m in msgs],
     })
+
+
+from django.conf import settings
+from django.views.decorators.http import require_GET
+
+
+@require_GET
+def rank_icon(request, medal_id: int, star: int):
+    from pathlib import Path
+    fname = f"rank_icon_{medal_id}_{star}.png"
+    path = Path(settings.BASE_DIR) / "static_assets" / "rank_icons" / fname
+    if not path.exists():
+        return HttpResponse("not found", status=404)
+    return FileResponse(open(path, "rb"), content_type="image/png")
+

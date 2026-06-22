@@ -3,7 +3,7 @@ import { View, Text, FlatList, Pressable, ScrollView, Platform } from "react-nat
 import { router, useLocalSearchParams } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import axios from "axios";
-import { getToken } from "@/lib/token-storage";
+import { getToken, saveToken } from "@/lib/token-storage";
 import { colors } from "@/lib/theme";
 import { API_BASE as API, API_ROOT } from "@/lib/api";
 
@@ -57,12 +57,18 @@ export default function MatchesScreen() {
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center", gap: 12 }}>
           <Text style={{ color: colors.red }}>{error}</Text>
           <Pressable
-            onPress={() => {
+            onPress={async () => {
               const url = `${API_ROOT}/api/auth/steam/login/?next=matches`;
               if (Platform.OS === "web") {
                 window.location.href = url;
               } else {
-                WebBrowser.openAuthSessionAsync(url, "client://auth-callback");
+                const result = await WebBrowser.openAuthSessionAsync(url, "dotatrener://auth-callback");
+                if (result?.type === "success" && result.url) {
+                  const params = new URL(result.url).searchParams;
+                  const t = params.get("token");
+                  const s = params.get("steam_id");
+                  if (t) { saveToken(t, s); router.replace("/profile"); }
+                }
               }
             }}
             style={{ backgroundColor: colors.orange, padding: 12, borderRadius: 8 }}
